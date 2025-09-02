@@ -1,0 +1,89 @@
+{
+  "name": "xentral/laravel-docs",
+  "description": "A laravel package which provides a documentation workflow leveraging phpdocs and mkdocs",
+  "keywords": [
+    "xentral",
+    "laravel",
+    "docs",
+    "mkdocs",
+    "phpdocs",
+    "documentation",
+    "workflow"
+  ],
+  "homepage": "https://github.com/xentral/laravel-docs",
+  "license": "MIT",
+  "type": "library",
+  "authors": [
+    {
+      "name": "Manuel Christlieb",
+      "email": "manuel@christlieb.eu"
+    }
+  ],
+  "require": {
+    "php": "^8.2",
+    "illuminate/console": "^10.0|^11.0|^12.0",
+    "illuminate/support": "^10.0|^11.0|^12.0",
+    "laravel/prompts": "^0.1.9",
+    "symfony/yaml": "^7.3"
+  },
+  "require-dev": {
+    "driftingly/rector-laravel": "^2.0",
+    "larastan/larastan": "^3.5",
+    "laravel/boost": "^1.0",
+    "laravel/pint": "^1.8",
+    "nunomaduro/collision": "^8.8",
+    "orchestra/pest-plugin-testbench": "^3.2",
+    "orchestra/testbench": "^9.14",
+    "pestphp/pest": "^3.7",
+    "pestphp/pest-plugin-type-coverage": "^3.6",
+    "rector/rector": "^2.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "Xentral\\LaravelDocs\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Xentral\\LaravelDocs\\Tests\\": "tests",
+      "Xentral\\LaravelDocs\\Database\\Factories\\": "database/factories",
+      "Workbench\\App\\": "workbench/app/",
+      "Workbench\\Database\\Factories\\": "workbench/database/factories/",
+      "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
+    }
+  },
+  "scripts": {
+    "pint": "vendor/bin/pint",
+    "pest": "vendor/bin/pest",
+    "test:coverage": "vendor/bin/pest --coverage-html coverage",
+    "test:ci": "vendor/bin/pest --coverage-clover coverage.xml",
+    "phpstan:analyse": "vendor/bin/phpstan analyse --ansi --memory-limit=4G",
+    "phpstan:baseline": "vendor/bin/phpstan analyse --generate-baseline --memory-limit=4G",
+    "rector": "vendor/bin/rector",
+    "lint": [
+      "@php vendor/bin/pint",
+      "@php vendor/bin/rector"
+    ],
+    "test": [
+      "@php artisan package:test --parallel"
+    ],
+    "all": [
+      "@lint",
+      "@phpstan:analyse",
+      "@test"
+    ]
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Xentral\\LaravelDocs\\DocsServiceProvider"
+      ]
+    }
+  }
+}
