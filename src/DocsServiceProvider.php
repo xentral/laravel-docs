@@ -10,7 +10,7 @@ class DocsServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/docs.php', 'xentral-docs');
+        $this->mergeConfigFrom(__DIR__.'/../config/docs.php', 'docs');
         $this->publishes([
             dirname(__DIR__).'/.ai/guidelines/documentation.blade.php' => base_path('.ai/guidelines/documentation.blade.php'),
         ], 'xentral-docs');

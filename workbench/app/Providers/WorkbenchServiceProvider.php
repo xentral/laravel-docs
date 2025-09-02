@@ -13,7 +13,7 @@ class WorkbenchServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/docs.php', 'xentral-docs');
+        $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/docs.php', 'docs');
         $this->app->bind(GuidelineComposer::class, PackageGuidelineComposer::class);
     }
 

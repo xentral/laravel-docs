@@ -102,7 +102,6 @@ class GenerateMKDocsCommand extends Command
 
     private function extractDocumentationNodes(): array
     {
-        dd(config('docs'));
         $parser = (new ParserFactory)->createForNewestSupportedVersion();
         $files = Finder::create()
             ->files()

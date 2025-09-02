@@ -1,8 +1,8 @@
 <?php declare(strict_types=1);
 
 return [
-    'paths' => [dirname(__DIR__).'/src'],
-    'output' => base_path('docs'),
+    'paths' => [dirname(__DIR__, 2).'/src', dirname(__DIR__).'/app'],
+    'output' => dirname(__DIR__, 2).'/docs',
     'commands' => [
         // {path} and {port} will be replaced with the configured/passed values
         'build' => 'docker run --rm -v {path}:/docs squidfunk/mkdocs-material build',
