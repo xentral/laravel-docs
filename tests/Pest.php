@@ -3,4 +3,4 @@
 use Orchestra\Testbench\Pest\WithPest;
 use Xentral\LaravelDocs\Tests\TestCase;
 
-uses(TestCase::class, WithPest::class)->in(__DIR__.'/Feature');
+uses(TestCase::class, WithPest::class)->in(__DIR__);

@@ -102,16 +102,25 @@ class GenerateMKDocsCommand extends Command
 
     private function extractDocumentationNodes(): array
     {
+        $paths = config('docs.paths', []);
+
+        if (empty($paths)) {
+            $this->components->warn('No paths configured in docs.paths. Please configure paths to scan for documentation.');
+
+            return [];
+        }
+
         $parser = (new ParserFactory)->createForNewestSupportedVersion();
         $files = Finder::create()
             ->files()
-            ->in(config('docs.paths', []))
+            ->in($paths)
             ->name('*.php');
 
         $functionalExtractor = new FunctionalDocBlockExtractor;
         $traverser = new NodeTraverser;
         $traverser->addVisitor($functionalExtractor);
 
+        $errorCount = 0;
         foreach ($files as $file) {
             try {
                 $functionalExtractor->setCurrentFilePath($file->getRealPath());
@@ -120,13 +129,18 @@ class GenerateMKDocsCommand extends Command
                 $traverser->traverse($ast);
             } catch (\Throwable $e) {
                 $this->components->error("Error parsing file: {$file->getRealPath()}\n{$e->getMessage()}");
+                $errorCount++;
 
-                return [];
+                continue; // Continue processing other files
             }
         }
 
         $documentationNodes = $functionalExtractor->foundDocs;
         $this->components->info('Found '.count($documentationNodes).' documentation nodes.');
+
+        if ($errorCount > 0) {
+            $this->components->warn("Encountered {$errorCount} parsing errors. Documentation generated from successfully parsed files.");
+        }
 
         return $documentationNodes;
     }
