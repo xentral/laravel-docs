@@ -9,3 +9,7 @@ coverage
 .php-cs-fixer.cache
 qase.config.json
 docs
+CLAUDE.md
+.mcp.json
+.junie
+.claude
