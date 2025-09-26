@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Process;
 
 class ServeMKDocsCommand extends Command
 {
-    protected $signature = 'mkdocs:serve {--path : The base path for the docs output directory} {--port=9090 : The port to serve the documentation on}';
+    protected $signature = 'docs:serve';
 
     protected bool $shouldKeepRunning = true;
 
@@ -21,33 +21,13 @@ class ServeMKDocsCommand extends Command
             $this->info('Stopping MKDocs server...');
         });
 
-        $docsBaseDir = $this->option('path') ?: config('docs.output');
-        $this->call('mkdocs:generate', ['--path' => $docsBaseDir]);
-
-        $port = $this->option('port');
-        $cmd = config('docs.commands.serve', [
-            'docker', 'run', '--rm', '-it',
-            '-p', '{port}:{port}',
-            '-v', '{path}:/docs',
-            '-e', 'ADD_MODULES=mkdocs-material pymdown-extensions',
-            '-e', 'LIVE_RELOAD_SUPPORT=true',
-            '-e', 'FAST_MODE=true',
-            '-e', 'DOCS_DIRECTORY=/docs',
-            '-e', 'AUTO_UPDATE=true',
-            '-e', 'UPDATE_INTERVAL=1',
-            '-e', 'DEV_ADDR=0.0.0.0:{port}',
-            'polinux/mkdocs',
-        ]);
-        if (is_array($cmd)) {
-            $cmd = array_map(fn (string $part) => str_replace(['{path}', '{port}'], [$docsBaseDir, $port], $part), $cmd);
-        } else {
-            $cmd = str_replace(['{path}', '{port}'], [$docsBaseDir, $port], $cmd);
-        }
+        $this->call('docs:generate');
 
         $process = Process::tty()
+            ->path(config('docs.output'))
             ->timeout(0)
             ->idleTimeout(0)
-            ->start($cmd);
+            ->start(config('docs.commands.serve'));
 
         while ($process->running() && $this->shouldKeepRunning) {
             if ($output = trim($process->latestOutput())) {

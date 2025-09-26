@@ -59,11 +59,11 @@ use Xentral\LaravelDocs\MkDocsGenerator;
  */
 class GenerateMKDocsCommand extends Command
 {
-    protected $signature = 'mkdocs:generate {--path : The base path for the docs output directory}';
+    protected $signature = 'docs:generate';
 
     public function handle(MkDocsGenerator $generator): int
     {
-        $docsBaseDir = $this->option('path') ?: config('docs.output');
+        $docsBaseDir = config('docs.output');
 
         $documentationNodes = $this->extractDocumentationNodes();
 
@@ -78,18 +78,10 @@ class GenerateMKDocsCommand extends Command
         $this->components->info('MKDocs configuration generated successfully.');
         $this->components->info('Documentation files generated successfully.');
 
-        $cmd = config('docs.commands.build', 'docker run --rm -v {path}:/docs squidfunk/mkdocs-material build');
-        if (is_array($cmd)) {
-            $cmd = array_map(fn (string $part) => str_replace('{path}', $docsBaseDir, $part), $cmd);
-        }
-        $cmd = is_array($cmd)
-            ? array_map(fn (string $part) => str_replace('{path}', $docsBaseDir, $part), $cmd)
-            : str_replace('{path}', $docsBaseDir, $cmd);
-
-        // Build using Docker
-        $result = Process::run($cmd, function ($type, $output) {
-            $this->components->info($output);
-        });
+        $result = Process::path(config('docs.output'))
+            ->run(config('docs.commands.build'), function ($type, $output) {
+                $this->components->info($output);
+            });
         if (! $result->successful()) {
             $this->components->error('MKDocs build failed. Please check the output for details.');
 

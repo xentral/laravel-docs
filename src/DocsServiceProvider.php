@@ -4,6 +4,7 @@ namespace Xentral\LaravelDocs;
 
 use Illuminate\Support\ServiceProvider;
 use Xentral\LaravelDocs\Console\Commands\GenerateMKDocsCommand;
+use Xentral\LaravelDocs\Console\Commands\PublishMKDocsCommand;
 use Xentral\LaravelDocs\Console\Commands\ServeMKDocsCommand;
 
 class DocsServiceProvider extends ServiceProvider
@@ -19,6 +20,7 @@ class DocsServiceProvider extends ServiceProvider
             $this->commands([
                 GenerateMKDocsCommand::class,
                 ServeMKDocsCommand::class,
+                PublishMKDocsCommand::class,
             ]);
         }
     }

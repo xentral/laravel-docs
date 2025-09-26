@@ -13,7 +13,7 @@ A Laravel package that automatically generates beautiful documentation from your
 - 🎯 **Selective documentation** using `@functional` annotation
 - 🔗 **Dependency tracking** and visualization with Mermaid diagrams
 - 📱 **Responsive documentation** with navigation and search
-- 🐳 **Docker support** for building and serving documentation
+- 🐍 **Python dependencies** managed automatically via uv
 - ⚡ **Laravel commands** for easy integration
 
 ## Installation
@@ -25,6 +25,23 @@ composer require --dev xentral/laravel-docs
 ```
 
 The package will automatically register its service provider and commands.
+
+### Prerequisites
+
+This package requires [uv](https://github.com/astral-sh/uv) to be installed on your system. uv is a fast Python package installer and resolver that's used to manage the MkDocs dependencies.
+
+To install uv:
+
+```bash
+# On macOS and Linux:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Or using pip:
+pip install uv
+
+# Or using Homebrew:
+brew install uv
+```
 
 ## Configuration
 
@@ -44,13 +61,9 @@ return [
     ],
     'output' => base_path('docs'),
     'commands' => [
-        'build' => 'docker run --rm -v {path}:/docs squidfunk/mkdocs-material build',
-        'serve' => [
-            'docker', 'run', '--rm', '-it',
-            '-p', '{port}:{port}',
-            '-v', '{path}:/docs',
-            'polinux/mkdocs',
-        ],
+        'build' => 'uvx -w mkdocs-material -w pymdown-extensions mkdocs build',
+        'publish' => 'uvx -w mkdocs-material -w pymdown-extensions mkdocs gh-deploy',
+        'serve' => 'uvx -w mkdocs-material -w pymdown-extensions mkdocs serve',
     ],
     'config' => [
         'site_name' => 'Your Project Documentation',
@@ -59,6 +72,8 @@ return [
     ],
 ];
 ```
+
+The package uses `uv` (via `uvx`) to automatically manage the Python dependencies (MkDocs and its extensions) without requiring a separate Python environment setup.
 
 ## Usage
 
@@ -127,29 +142,30 @@ class AuthService
 Generate your documentation using the Artisan command:
 
 ```bash
-# Generate documentation in the default output directory
-php artisan mkdocs:generate
-
-# Generate documentation in a custom directory
-php artisan mkdocs:generate --path=/path/to/docs
+php artisan docs:generate
 ```
+
+The documentation will be generated in the directory specified in your `config/docs.php` file (default: `base_path('docs')`).
 
 ### Serve Documentation Locally
 
 Start a local development server to preview your documentation:
 
 ```bash
-# Serve on default port (9090)
-php artisan mkdocs:serve
-
-# Serve on custom port
-php artisan mkdocs:serve --port=8080
-
-# Serve from custom path
-php artisan mkdocs:serve --path=/path/to/docs --port=3000
+php artisan docs:serve
 ```
 
-The documentation will be available at `http://localhost:9090`
+The documentation will be available at `http://localhost:8000` (default MkDocs port)
+
+### Publish Documentation to GitHub Pages
+
+Deploy your documentation to GitHub Pages:
+
+```bash
+php artisan docs:publish
+```
+
+This will build and deploy your documentation to the `gh-pages` branch of your repository.
 
 ## Documentation Structure
 
@@ -194,18 +210,20 @@ Full Markdown support in your functional descriptions:
 - Mermaid diagrams
 - Links and images
 
-### Docker Integration
+### Python Dependencies Management
 
-The package comes with pre-configured Docker commands for MkDocs:
+The package uses `uv` to automatically manage Python dependencies. The following MkDocs packages are automatically installed when needed:
 
-- **Build**: `docker run --rm -v {path}:/docs squidfunk/mkdocs-material build`
-- **Serve**: Uses `polinux/mkdocs` with live reload
+- **mkdocs-material**: The Material theme for MkDocs
+- **pymdown-extensions**: Python Markdown extensions for advanced features
+
+No manual Python environment setup is required - `uvx` handles everything automatically.
 
 ## Requirements
 
 - PHP 8.2 or higher
 - Laravel 10.0, 11.0, or 12.0
-- Docker (for building and serving documentation)
+- uv (for managing Python dependencies)
 
 ## Testing
 
@@ -231,9 +249,9 @@ composer test
 - Check that your paths are correctly configured in `config/docs.php`
 - Verify that your PHP files are syntactically correct
 
-**Docker build fails**
-- Ensure Docker is running
-- Check that the configured Docker image is available
+**Build fails**
+- Ensure uv is installed and accessible in your PATH
+- Check that you have internet access for downloading Python packages
 - Verify that the output directory has proper permissions
 
 **Empty documentation pages**

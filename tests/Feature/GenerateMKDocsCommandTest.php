@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Process;
 
-it('can execute mkdocs:generate command successfully', function () {
+it('can execute docs:generate command successfully', function () {
     // Create a test fixture file with functional documentation
     $fixtureDir = __DIR__.'/../fixtures';
     if (! is_dir($fixtureDir)) {
@@ -45,7 +45,7 @@ PHP);
         'echo "Mock mkdocs build"' => Process::result(output: 'Mock build success'),
     ]);
 
-    $this->artisan('mkdocs:generate')
+    $this->artisan('docs:generate')
         ->assertExitCode(0);
 
     // Clean up
@@ -80,36 +80,12 @@ PHP);
         'docs.output' => sys_get_temp_dir().'/test-docs',
     ]);
 
-    $this->artisan('mkdocs:generate')
+    $this->artisan('docs:generate')
         ->assertExitCode(0);
 
     // Clean up
     unlink($fixtureDir.'/RegularClass.php');
     rmdir($fixtureDir);
-});
-
-it('accepts custom path option', function () {
-    $customPath = sys_get_temp_dir().'/custom-docs';
-    $emptyFixtureDir = __DIR__.'/../empty-path-fixtures';
-
-    if (! is_dir($emptyFixtureDir)) {
-        mkdir($emptyFixtureDir, 0755, true);
-    }
-
-    config([
-        'docs.paths' => [$emptyFixtureDir], // Need at least one path
-        'docs.commands.build' => 'echo "Mock build"',
-    ]);
-
-    Process::fake([
-        'echo "Mock build"' => Process::result(output: 'Mock build success'),
-    ]);
-
-    $this->artisan('mkdocs:generate', ['--path' => $customPath])
-        ->assertExitCode(0);
-
-    // Clean up
-    rmdir($emptyFixtureDir);
 });
 
 it('handles parse errors gracefully', function () {
@@ -137,7 +113,7 @@ PHP);
         'docs.output' => sys_get_temp_dir().'/test-docs',
     ]);
 
-    $this->artisan('mkdocs:generate')
+    $this->artisan('docs:generate')
         ->assertExitCode(0);
 
     // Clean up
