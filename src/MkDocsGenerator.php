@@ -355,7 +355,7 @@ class MkDocsGenerator
                 continue;
             }
 
-            $title = ucwords(str_replace(['-', '-(', ')'], [' ', ' (', ')'], pathinfo($key, PATHINFO_FILENAME)));
+            $title = ucwords(str_replace(['-', '-(', ')'], [' ', ' (', ')'], pathinfo((string) $key, PATHINFO_FILENAME)));
             $filePath = $pathPrefix.$key;
 
             if (is_array($value)) {
