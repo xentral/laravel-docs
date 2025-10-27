@@ -8,7 +8,13 @@ use Symfony\Component\Yaml\Yaml;
 
 class MkDocsGenerator
 {
-    public function __construct(private readonly Filesystem $filesystem) {}
+    private array $validationWarnings = [];
+    private readonly MarkdownValidator $validator;
+
+    public function __construct(private readonly Filesystem $filesystem)
+    {
+        $this->validator = new MarkdownValidator();
+    }
 
     public function generate(array $documentationNodes, string $docsBaseDir): void
     {
@@ -16,6 +22,18 @@ class MkDocsGenerator
 
         // Parse static content files from configured paths
         $staticContentNodes = $this->parseStaticContentFiles($docsBaseDir);
+
+        // Check for error-level validation warnings and fail early
+        $errors = array_filter($this->validationWarnings, fn($w) => $w['severity'] === 'error');
+        if (!empty($errors)) {
+            echo $this->validator->formatWarnings($this->validationWarnings);
+            throw new \RuntimeException(
+                sprintf(
+                    "Documentation generation failed due to %d validation error(s). Please fix the errors above.",
+                    count($errors)
+                )
+            );
+        }
 
         // Merge documentation nodes with static content nodes
         $allNodes = array_merge($documentationNodes, $staticContentNodes);
@@ -39,10 +57,14 @@ class MkDocsGenerator
         // Build documentation registry and maps with processed nodes
         $registry = $this->buildRegistry($processedNodes);
         $navPathMap = $this->buildNavPathMap($processedNodes);
+        $navIdMap = $this->buildNavIdMap($processedNodes);
         $usedBy = $this->buildUsedByMap($processedNodes);
 
+        // Build cross-reference maps for bi-directional linking
+        $referencedBy = $this->buildReferencedByMap($processedNodes, $registry, $navPathMap, $navIdMap);
+
         // Generate the document tree
-        $docTree = $this->generateDocTree($processedNodes, $registry, $navPathMap, $usedBy);
+        $docTree = $this->generateDocTree($processedNodes, $registry, $navPathMap, $navIdMap, $usedBy, $referencedBy);
 
         // Prepare output directory
         $this->filesystem->deleteDirectory($docsOutputDir);
@@ -63,6 +85,11 @@ class MkDocsGenerator
         $config = config('docs.config', []);
         $config['nav'] = $navStructure;
         $this->dumpAsYaml($config, $docsBaseDir.'/mkdocs.yml');
+
+        // Display validation warnings if any were found
+        if (!empty($this->validationWarnings)) {
+            echo $this->validator->formatWarnings($this->validationWarnings);
+        }
     }
 
     private function parseStaticContentFiles(string $docsBaseDir): array
@@ -160,8 +187,17 @@ class MkDocsGenerator
         $content = $this->filesystem->get($filePath);
         $relativePath = str_replace($contentBasePath.'/', '', $filePath);
 
+        // Validate markdown content
+        $warnings = $this->validator->validate($content, $filePath);
+        if (!empty($warnings)) {
+            $this->validationWarnings = array_merge($this->validationWarnings, $warnings);
+        }
+
         // Extract @nav lines and clean content
-        [$navPath, $cleanedContent, $navId, $navParent] = $this->extractNavFromContent($content, $relativePath, $navPrefix);
+        [$navPath, $cleanedContent, $navId, $navParent, $uses, $links] = $this->extractNavFromContent($content, $relativePath, $navPrefix);
+
+        // Fix PHP code blocks for proper syntax highlighting
+        $cleanedContent = $this->fixPhpCodeBlocks($cleanedContent);
 
         // Always try to extract display title from markdown content first
         $lines = explode("\n", $cleanedContent);
@@ -178,8 +214,8 @@ class MkDocsGenerator
             'navPath' => $navPath,
             'displayTitle' => $displayTitle, // Store display title directly
             'description' => $cleanedContent,
-            'uses' => [],
-            'links' => [],
+            'uses' => $uses,
+            'links' => $links,
             'type' => 'static_content',
             'content_type' => $contentType,
             'navId' => $navId, // Custom identifier for parent referencing
@@ -193,6 +229,8 @@ class MkDocsGenerator
         $navPath = null;
         $navId = null;
         $navParent = null;
+        $uses = [];
+        $links = [];
         $cleanedLines = [];
         $inFrontMatter = false;
         $frontMatterEnded = false;
@@ -241,7 +279,25 @@ class MkDocsGenerator
                 continue; // Exclude @nav line from content
             }
 
-            // Collect all lines except navigation directives and frontmatter
+            // Check for @uses lines
+            if (str_starts_with($trimmedLine, '@uses ')) {
+                $uses[] = trim(substr($trimmedLine, strlen('@uses')));
+                continue; // Exclude @uses line from content
+            }
+
+            // Check for @link lines
+            if (str_starts_with($trimmedLine, '@link ')) {
+                $links[] = trim(substr($trimmedLine, strlen('@link')));
+                continue; // Exclude @link line from content
+            }
+
+            // Check for @links lines
+            if (str_starts_with($trimmedLine, '@links ')) {
+                $links[] = trim(substr($trimmedLine, strlen('@links')));
+                continue; // Exclude @links line from content
+            }
+
+            // Collect all lines except navigation directives, uses, links, and frontmatter
             $cleanedLines[] = $line;
         }
 
@@ -268,7 +324,7 @@ class MkDocsGenerator
             $navPath = $navPrefix . ' / ' . implode(' / ', $pathParts);
         }
 
-        return [$navPath, implode("\n", $cleanedLines), $navId, $navParent];
+        return [$navPath, implode("\n", $cleanedLines), $navId, $navParent, $uses, $links];
     }
 
     private function extractTitleFromContent(array $lines): ?string
@@ -298,18 +354,25 @@ class MkDocsGenerator
     {
         $registry = [];
         foreach ($documentationNodes as $node) {
-            // For static content, use exact original path from owner
+            // Build path based on where files are actually placed in the generated directory
+            // Both static and PHPDoc content use the navPath structure for file placement
+            $pathSegments = array_map('trim', explode('/', (string) $node['navPath']));
+            $pageTitle = array_pop($pathSegments);
+
             if (isset($node['type']) && $node['type'] === 'static_content') {
+                // For static content, preserve original filename from owner
                 $ownerParts = explode(':', $node['owner'], 2);
                 if (count($ownerParts) === 2) {
-                    $registry[$node['owner']] = $ownerParts[1]; // e.g., "fulfillment/warehouse_refactoring/file.md"
+                    $fileName = basename($ownerParts[1]); // e.g., "SHADOW_MODE_SPECIFICATION.md"
+                    $urlParts = $pathSegments; // Use navPath segments as-is (no slugging for static content dirs)
+                    $urlParts[] = $fileName;
+                    $registry[$node['owner']] = implode('/', $urlParts);
                 }
             } else {
-                // For PHPDoc content, use slugged paths (existing behavior)
-                $pathSegments = array_map('trim', explode('/', (string) $node['navPath']));
-                $pageTitle = array_pop($pathSegments);
-                $urlParts = array_map([$this, 'slug'], $pathSegments);
-                $urlParts[] = $this->slug($pageTitle).'.md';
+                // For PHPDoc content, preserve directory names (with spaces) but slug the filename
+                // This matches how files are actually generated in setInNestedArray()
+                $urlParts = $pathSegments; // Keep directory names as-is
+                $urlParts[] = $this->slug($pageTitle).'.md'; // Only slug the filename
                 $registry[$node['owner']] = implode('/', $urlParts);
             }
         }
@@ -325,6 +388,18 @@ class MkDocsGenerator
         }
 
         return $navPathMap;
+    }
+
+    private function buildNavIdMap(array $documentationNodes): array
+    {
+        $navIdMap = [];
+        foreach ($documentationNodes as $node) {
+            if (!empty($node['navId'])) {
+                $navIdMap[$node['navId']] = $node['owner'];
+            }
+        }
+
+        return $navIdMap;
     }
 
     private function buildUsedByMap(array $documentationNodes): array
@@ -343,7 +418,52 @@ class MkDocsGenerator
         return $usedBy;
     }
 
-    private function generateDocTree(array $documentationNodes, array $registry, array $navPathMap, array $usedBy): array
+    private function buildReferencedByMap(array $documentationNodes, array $registry, array $navPathMap, array $navIdMap): array
+    {
+        $referencedBy = [];
+
+        // Scan all nodes for cross-references
+        foreach ($documentationNodes as $node) {
+            $sourceOwner = $node['owner'];
+            $content = $node['description'] ?? '';
+
+            // Find all [@ref:...] and [@navid:...] references in this content
+            $pattern = '/(?:\[([^\]]+)\]\()?@(ref|navid):([^)\]\s]+)[\])]?/';
+            preg_match_all($pattern, $content, $matches, PREG_SET_ORDER);
+
+            foreach ($matches as $match) {
+                $refType = $match[2]; // 'ref' or 'navid'
+                $refTarget = $match[3]; // The actual reference target
+
+                // Resolve the target owner
+                $targetOwner = null;
+                if ($refType === 'ref') {
+                    $cleanTarget = ltrim($refTarget, '\\');
+                    if (isset($registry[$cleanTarget])) {
+                        $targetOwner = $cleanTarget;
+                    }
+                } elseif ($refType === 'navid') {
+                    if (isset($navIdMap[$refTarget])) {
+                        $targetOwner = $navIdMap[$refTarget];
+                    }
+                }
+
+                // Track the reference
+                if ($targetOwner) {
+                    if (!isset($referencedBy[$targetOwner])) {
+                        $referencedBy[$targetOwner] = [];
+                    }
+                    if (!in_array($sourceOwner, $referencedBy[$targetOwner])) {
+                        $referencedBy[$targetOwner][] = $sourceOwner;
+                    }
+                }
+            }
+        }
+
+        return $referencedBy;
+    }
+
+    private function generateDocTree(array $documentationNodes, array $registry, array $navPathMap, array $navIdMap, array $usedBy, array $referencedBy): array
     {
         $docTree = [];
         $pathRegistry = [];
@@ -379,7 +499,7 @@ class MkDocsGenerator
             }
 
             // Generate the markdown content
-            $markdownContent = $this->generateMarkdownContent($node, $pageTitle, $registry, $navPathMap, $usedBy);
+            $markdownContent = $this->generateMarkdownContent($node, $pageTitle, $registry, $navPathMap, $navIdMap, $usedBy, $referencedBy);
 
             // Build the path in the document tree
             $docTree = $this->addToDocTree($docTree, $pathSegments, $originalPageTitle, $pageFileName, $markdownContent);
@@ -471,16 +591,19 @@ class MkDocsGenerator
         return $array;
     }
 
-    private function generateMarkdownContent(array $node, string $pageTitle, array $registry, array $navPathMap, array $usedBy): string
+    private function generateMarkdownContent(array $node, string $pageTitle, array $registry, array $navPathMap, array $navIdMap, array $usedBy, array $referencedBy): string
     {
         // Handle static content nodes differently
         if (isset($node['type']) && $node['type'] === 'static_content') {
-            return $this->generateStaticContent($node, $pageTitle);
+            return $this->generateStaticContent($node, $pageTitle, $registry, $navPathMap, $navIdMap, $usedBy, $referencedBy);
         }
 
         $markdownContent = "# {$pageTitle}\n\n";
         $markdownContent .= "Source: `{$node['owner']}`\n{:.page-subtitle}\n\n";
-        $markdownContent .= $node['description'];
+
+        // Process inline references in the description
+        $processedDescription = $this->processInlineReferences($node['description'], $registry, $navPathMap, $navIdMap, $node['owner']);
+        $markdownContent .= $processedDescription;
 
         // Add "Building Blocks Used" section
         if (! empty($node['uses'])) {
@@ -493,6 +616,11 @@ class MkDocsGenerator
             $markdownContent .= $this->generateUsedBySection($ownerKey, $usedBy, $registry, $navPathMap);
         }
 
+        // Add "Referenced by" section
+        if (isset($referencedBy[$ownerKey])) {
+            $markdownContent .= $this->generateReferencedBySection($ownerKey, $referencedBy, $registry, $navPathMap);
+        }
+
         // Add "Further reading" section
         if (! empty($node['links'])) {
             $markdownContent .= $this->generateLinksSection($node['links']);
@@ -501,7 +629,7 @@ class MkDocsGenerator
         return $markdownContent;
     }
 
-    private function generateStaticContent(array $node, string $pageTitle): string
+    private function generateStaticContent(array $node, string $pageTitle, array $registry = [], array $navPathMap = [], array $navIdMap = [], array $usedBy = [], array $referencedBy = []): string
     {
         // For static content, we don't add the title since it might already be in the content
         // We also don't add the source subtitle
@@ -510,6 +638,237 @@ class MkDocsGenerator
         // If the content doesn't start with a title, add one
         if (! preg_match('/^#\s+/', trim($content))) {
             $content = "# {$pageTitle}\n\n" . $content;
+        }
+
+        // Process inline references in the content
+        $content = $this->processInlineReferences($content, $registry, $navPathMap, $navIdMap, $node['owner']);
+
+        // Add "Building Blocks Used" section if uses are defined
+        if (! empty($node['uses'])) {
+            $content .= $this->generateUsedComponentsSection($node, $registry, $navPathMap);
+        }
+
+        // Add "Used By Building Blocks" section
+        $ownerKey = $node['owner'];
+        if (isset($usedBy[$ownerKey])) {
+            $content .= $this->generateUsedBySection($ownerKey, $usedBy, $registry, $navPathMap);
+        }
+
+        // Add "Referenced by" section
+        if (isset($referencedBy[$ownerKey])) {
+            $content .= $this->generateReferencedBySection($ownerKey, $referencedBy, $registry, $navPathMap);
+        }
+
+        // Add "Further reading" section if links are defined
+        if (! empty($node['links'])) {
+            $content .= $this->generateLinksSection($node['links']);
+        }
+
+        return $content;
+    }
+
+    private function processInlineReferences(string $content, array $registry, array $navPathMap, array $navIdMap, string $sourceOwner): string
+    {
+        // Process [@ref:...] and [@navid:...] syntax
+        // Pattern explanation:
+        // (?:\[([^\]]+)\]\()?  - Optional custom link text in [text]( format
+        // @(ref|navid):       - The @ref: or @navid: syntax
+        // ([^)\]\s]+)         - The reference target (no spaces, closing parens, or brackets)
+        // [\])]?              - Optional closing bracket or paren
+
+        $pattern = '/(?:\[([^\]]+)\]\()?@(ref|navid):([^)\]\s]+)[\])]?/';
+
+        return preg_replace_callback($pattern, function ($matches) use ($registry, $navPathMap, $navIdMap, $sourceOwner) {
+            $customText = $matches[1] ?? null; // Custom link text if provided
+            $refType = $matches[2]; // 'ref' or 'navid'
+            $refTarget = $matches[3]; // The actual reference target
+
+            // Resolve the reference based on type
+            $resolvedLink = $this->resolveReference($refType, $refTarget, $registry, $navPathMap, $navIdMap, $sourceOwner);
+
+            if ($resolvedLink === null) {
+                // Reference couldn't be resolved - throw build error with helpful context
+                $sourceInfo = $sourceOwner ? " in {$sourceOwner}" : "";
+                $suggestion = "";
+
+                if ($refType === 'ref') {
+                    $suggestion = "\n\nThe class '{$refTarget}' is not documented. To fix this:\n" .
+                                  "1. Add @docs annotation to the class PHPDoc comment\n" .
+                                  "2. Re-run docs generation\n" .
+                                  "3. Or use a code block instead: `" . basename(str_replace('\\', '/', $refTarget)) . "`";
+                } elseif ($refType === 'navid') {
+                    $suggestion = "\n\nThe navigation ID '{$refTarget}' doesn't exist. Check:\n" .
+                                  "1. @navid annotation exists in target document\n" .
+                                  "2. No typos in the navigation ID\n" .
+                                  "3. Or use a code block instead: `{$refTarget}`";
+                }
+
+                throw new \RuntimeException("Broken reference: @{$refType}:{$refTarget}{$sourceInfo}{$suggestion}");
+            }
+
+            $linkText = $customText ?: $resolvedLink['title'];
+            $linkUrl = $resolvedLink['url'];
+
+            return "[{$linkText}]({$linkUrl})";
+        }, $content);
+    }
+
+    private function resolveReference(string $refType, string $refTarget, array $registry, array $navPathMap, array $navIdMap, string $sourceOwner): ?array
+    {
+        if ($refType === 'ref') {
+            // Reference by class/owner
+            return $this->resolveRefByOwner($refTarget, $registry, $navPathMap, $sourceOwner);
+        } elseif ($refType === 'navid') {
+            // Reference by navigation ID
+            return $this->resolveRefByNavId($refTarget, $navIdMap, $registry, $navPathMap, $sourceOwner);
+        }
+
+        return null;
+    }
+
+    private function resolveRefByOwner(string $ownerTarget, array $registry, array $navPathMap, string $sourceOwner): ?array
+    {
+        // Clean the target (remove leading backslash if present)
+        $cleanTarget = ltrim($ownerTarget, '\\');
+
+        // Check if this owner exists in our registry
+        if (!isset($registry[$cleanTarget])) {
+            return null;
+        }
+
+        $targetPath = $registry[$cleanTarget];
+        $sourcePath = $registry[$sourceOwner] ?? '';
+
+        // Generate relative URL
+        $relativeFilePath = $this->makeRelativePath($targetPath, $sourcePath);
+        $relativeUrl = $this->toCleanUrl($relativeFilePath);
+
+        // Generate smart title with fallback chain
+        $title = $this->generateSmartTitle($cleanTarget, $navPathMap);
+
+        return [
+            'title' => $title,
+            'url' => $relativeUrl,
+        ];
+    }
+
+    private function resolveRefByNavId(string $navIdTarget, array $navIdMap, array $registry, array $navPathMap, string $sourceOwner): ?array
+    {
+        // Check if this navId exists in our map
+        if (!isset($navIdMap[$navIdTarget])) {
+            return null;
+        }
+
+        // Get the owner for this navId
+        $targetOwner = $navIdMap[$navIdTarget];
+
+        // Check if this owner exists in our registry
+        if (!isset($registry[$targetOwner])) {
+            return null;
+        }
+
+        $targetPath = $registry[$targetOwner];
+        $sourcePath = $registry[$sourceOwner] ?? '';
+
+        // Generate relative URL
+        $relativeFilePath = $this->makeRelativePath($targetPath, $sourcePath);
+        $relativeUrl = $this->toCleanUrl($relativeFilePath);
+
+        // Generate smart title with fallback chain
+        $title = $this->generateSmartTitle($targetOwner, $navPathMap);
+
+        return [
+            'title' => $title,
+            'url' => $relativeUrl,
+        ];
+    }
+
+    private function generateSmartTitle(string $ownerTarget, array $navPathMap, array $allNodes = []): string
+    {
+        // Smart fallback chain: H1 title → nav path last segment → class name
+
+        // Try to extract H1 title from the target node's content
+        $h1Title = $this->extractH1TitleFromTarget($ownerTarget, $allNodes);
+        if ($h1Title) {
+            return $h1Title;
+        }
+
+        // Fallback to nav path last segment
+        if (isset($navPathMap[$ownerTarget])) {
+            $navPath = $navPathMap[$ownerTarget];
+            $pathSegments = array_map('trim', explode('/', $navPath));
+            $lastSegment = array_pop($pathSegments);
+            if ($lastSegment) {
+                return $lastSegment;
+            }
+        }
+
+        // Final fallback to class name (extract class name from full path)
+        $classParts = explode('\\', $ownerTarget);
+        return array_pop($classParts) ?: $ownerTarget;
+    }
+
+    private function extractH1TitleFromTarget(string $ownerTarget, array $allNodes): ?string
+    {
+        // Find the node with this owner
+        foreach ($allNodes as $node) {
+            if ($node['owner'] === $ownerTarget) {
+                // Extract H1 from the description content
+                $content = $node['description'] ?? '';
+                $lines = explode("\n", $content);
+
+                foreach ($lines as $line) {
+                    $trimmedLine = trim($line);
+
+                    // Skip empty lines
+                    if (empty($trimmedLine)) {
+                        continue;
+                    }
+
+                    // Check if this is a markdown title (starts with # )
+                    if (preg_match('/^#\s+(.+)$/', $trimmedLine, $matches)) {
+                        return trim($matches[1]);
+                    }
+
+                    // If we encounter any non-empty, non-title content, stop looking
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function generateReferencedBySection(string $ownerKey, array $referencedBy, array $registry, array $navPathMap): string
+    {
+        $content = "\n\n## Referenced by\n\n";
+        $content .= "This page is referenced by the following pages:\n\n";
+
+        $sourcePath = $registry[$ownerKey] ?? '';
+
+        // Deduplicate and sort references
+        $uniqueReferences = array_unique($referencedBy[$ownerKey]);
+
+        // Sort references by navigation path for meaningful ordering
+        usort($uniqueReferences, function($a, $b) use ($navPathMap) {
+            $navPathA = $navPathMap[$a] ?? $a;
+            $navPathB = $navPathMap[$b] ?? $b;
+            return strcasecmp($navPathA, $navPathB);
+        });
+
+        foreach ($uniqueReferences as $referencingOwner) {
+            $referencingOwnerKey = ltrim(trim((string) $referencingOwner), '\\');
+            $referencingNavPath = $navPathMap[$referencingOwnerKey] ?? $referencingOwnerKey;
+
+            if (isset($registry[$referencingOwnerKey])) {
+                $targetPath = $registry[$referencingOwnerKey];
+                $relativeFilePath = $this->makeRelativePath($targetPath, $sourcePath);
+                $relativeUrl = $this->toCleanUrl($relativeFilePath);
+
+                $content .= "* [{$referencingNavPath}]({$relativeUrl})\n";
+            } else {
+                $content .= "* {$referencingNavPath} (Not documented)\n";
+            }
         }
 
         return $content;
@@ -851,20 +1210,67 @@ class MkDocsGenerator
 
     private function makeRelativePath(string $path, string $base): string
     {
-        if (str_starts_with($path, dirname($base))) {
-            return './'.substr($path, strlen(dirname($base).'/'));
+        // Calculate proper relative path between two locations in the docs tree
+        // This handles cross-references between different directory structures
+        // using proper ../ notation that MkDocs expects
+
+        $pathParts = explode('/', $path);
+        $baseParts = explode('/', dirname($base));
+
+        // Remove common path prefix
+        while (count($pathParts) > 0 && count($baseParts) > 0 && $pathParts[0] === $baseParts[0]) {
+            array_shift($pathParts);
+            array_shift($baseParts);
         }
 
-        return $path;
+        // Add ../ for each remaining directory in base path
+        $relativePrefix = str_repeat('../', count($baseParts));
+
+        // Combine with remaining target path
+        return $relativePrefix . implode('/', $pathParts);
     }
 
     private function toCleanUrl(string $path): string
     {
+        // Check if this path contains spaces or uppercase letters (indicating non-slugified static content)
+        // MkDocs requires .md extension for non-slugified paths
+        if (preg_match('/[\sA-Z]/', $path)) {
+            // Keep the .md extension for paths with spaces or capitals
+            return ($path === '.' || $path === '') ? '' : $path;
+        }
+
+        // For slugified paths, strip .md and use directory-style URLs
         $url = preg_replace('/\.md$/', '', $path);
         if (basename((string) $url) === 'index') {
             $url = dirname((string) $url);
         }
 
         return ($url === '.' || $url === '') ? '' : rtrim((string) $url, '/').'/';
+    }
+
+    /**
+     * Fix PHP code blocks by prepending <?php for proper syntax highlighting
+     *
+     * @param string $content The markdown content
+     * @return string The fixed content
+     */
+    private function fixPhpCodeBlocks(string $content): string
+    {
+        // Pattern to match PHP code blocks
+        return preg_replace_callback(
+            '/^```php\n((?:(?!```)[\s\S])*?)^```/m',
+            function ($matches) {
+                $codeContent = $matches[1];
+
+                // Check if it already starts with <?php
+                if (!preg_match('/^\s*<\?php/', $codeContent)) {
+                    // Prepend <?php\n
+                    $codeContent = "<?php\n" . $codeContent;
+                }
+
+                return "```php\n" . $codeContent . "```";
+            },
+            $content
+        );
     }
 }

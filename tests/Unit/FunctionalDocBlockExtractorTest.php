@@ -223,7 +223,7 @@ namespace App\Services;
 /**
  * @functional
  * This service uses multiple dependencies.
- * 
+ *
  * @uses \App\Models\User
  * @uses \App\Services\EmailService
  * @link https://example.com/docs
@@ -246,4 +246,135 @@ PHP;
     expect($doc['links'])->toHaveCount(2);
     expect($doc['links'])->toContain('https://example.com/docs');
     expect($doc['links'])->toContain('[Another link](https://example.com/other)');
+});
+
+it('extracts @navid annotation from PHPDoc', function () {
+    $extractor = new FunctionalDocBlockExtractor;
+    $extractor->setCurrentFilePath('/test/path/TestClass.php');
+
+    $phpCode = <<<'PHP'
+<?php
+namespace App\Services;
+
+/**
+ * @functional
+ * This service has a custom navigation ID.
+ *
+ * @navid auth-service
+ * @nav Authentication / User Service
+ */
+class AuthService {}
+PHP;
+
+    $parser = (new ParserFactory)->createForNewestSupportedVersion();
+    $traverser = new NodeTraverser;
+    $traverser->addVisitor($extractor);
+
+    $ast = $parser->parse($phpCode);
+    $traverser->traverse($ast);
+
+    expect($extractor->foundDocs)->toHaveCount(1);
+    $doc = $extractor->foundDocs[0];
+    expect($doc['navId'])->toBe('auth-service');
+    expect($doc['navPath'])->toBe('Authentication / User Service');
+});
+
+it('extracts @navparent annotation from PHPDoc', function () {
+    $extractor = new FunctionalDocBlockExtractor;
+    $extractor->setCurrentFilePath('/test/path/TestClass.php');
+
+    $phpCode = <<<'PHP'
+<?php
+namespace App\Services;
+
+/**
+ * @functional
+ * This service references a parent navigation node.
+ *
+ * @navparent auth-service
+ * @nav Authentication / Login Details
+ */
+class LoginService {}
+PHP;
+
+    $parser = (new ParserFactory)->createForNewestSupportedVersion();
+    $traverser = new NodeTraverser;
+    $traverser->addVisitor($extractor);
+
+    $ast = $parser->parse($phpCode);
+    $traverser->traverse($ast);
+
+    expect($extractor->foundDocs)->toHaveCount(1);
+    $doc = $extractor->foundDocs[0];
+    expect($doc['navParent'])->toBe('auth-service');
+    expect($doc['navPath'])->toBe('Authentication / Login Details');
+});
+
+it('extracts @navid and @navparent together with other annotations', function () {
+    $extractor = new FunctionalDocBlockExtractor;
+    $extractor->setCurrentFilePath('/test/path/TestClass.php');
+
+    $phpCode = <<<'PHP'
+<?php
+namespace App\Services;
+
+/**
+ * @functional
+ * Complete service with all navigation annotations.
+ *
+ * @navid payment-service
+ * @nav Services / Payment Processing
+ * @uses \App\Models\Payment
+ * @link https://example.com/payments
+ */
+class PaymentService {}
+PHP;
+
+    $parser = (new ParserFactory)->createForNewestSupportedVersion();
+    $traverser = new NodeTraverser;
+    $traverser->addVisitor($extractor);
+
+    $ast = $parser->parse($phpCode);
+    $traverser->traverse($ast);
+
+    expect($extractor->foundDocs)->toHaveCount(1);
+    $doc = $extractor->foundDocs[0];
+    expect($doc['owner'])->toBe('App\Services\PaymentService');
+    expect($doc['navId'])->toBe('payment-service');
+    expect($doc['navPath'])->toBe('Services / Payment Processing');
+    expect($doc['uses'])->toContain('\App\Models\Payment');
+    expect($doc['links'])->toContain('https://example.com/payments');
+});
+
+it('includes navId and navParent in extracted data structure', function () {
+    $extractor = new FunctionalDocBlockExtractor;
+    $extractor->setCurrentFilePath('/test/path/TestClass.php');
+
+    $phpCode = <<<'PHP'
+<?php
+namespace App\Services;
+
+/**
+ * @functional
+ * Service with parent reference.
+ *
+ * @navid child-service
+ * @navparent parent-service
+ */
+class ChildService {}
+PHP;
+
+    $parser = (new ParserFactory)->createForNewestSupportedVersion();
+    $traverser = new NodeTraverser;
+    $traverser->addVisitor($extractor);
+
+    $ast = $parser->parse($phpCode);
+    $traverser->traverse($ast);
+
+    expect($extractor->foundDocs)->toHaveCount(1);
+    $doc = $extractor->foundDocs[0];
+    expect($doc)->toHaveKey('navId');
+    expect($doc)->toHaveKey('navParent');
+    expect($doc['navId'])->toBe('child-service');
+    expect($doc['navParent'])->toBe('parent-service');
 });
