@@ -74,7 +74,7 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
      * Parses a PHPDoc comment string to extract the functional description and nav path.
      * This function contains several processing passes to clean and format the text correctly.
      *
-     * @return array{owner: string, navPath: string, description: string, links: array, uses: array, sourceFile: string, startLine: int}|null
+     * @return array{owner: string, navPath: string, navId: ?string, navParent: ?string, description: string, links: array, uses: array, sourceFile: string, startLine: int}|null
      */
     private function parseDocComment(string $docComment, string $defaultTitle, string $ownerIdentifier, int $startLine): ?array
     {
@@ -85,6 +85,8 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
 
         $lines = explode("\n", $docComment);
         $navPath = null;
+        $navId = null;
+        $navParent = null;
         $links = [];
         $uses = [];
 
@@ -92,8 +94,12 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
         foreach ($lines as $line) {
             $cleanLine = ltrim(trim($line), '* ');
 
-            if (str_starts_with($cleanLine, '@nav')) {
+            if (str_starts_with($cleanLine, '@nav ')) {
                 $navPath = trim(substr($cleanLine, strlen('@nav')));
+            } elseif (str_starts_with($cleanLine, '@navid ')) {
+                $navId = trim(substr($cleanLine, strlen('@navid')));
+            } elseif (str_starts_with($cleanLine, '@navparent ')) {
+                $navParent = trim(substr($cleanLine, strlen('@navparent')));
             } elseif (str_starts_with($cleanLine, '@uses')) {
                 $uses[] = trim(substr($cleanLine, strlen('@uses')));
             } elseif (str_starts_with($cleanLine, '@links')) {
@@ -206,6 +212,8 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
         return [
             'owner' => $ownerIdentifier,
             'navPath' => $navPath,
+            'navId' => $navId,
+            'navParent' => $navParent,
             'description' => implode("\n", $finalLines),
             'links' => $links,
             'uses' => $uses,
