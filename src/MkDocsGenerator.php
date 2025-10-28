@@ -1130,7 +1130,7 @@ class MkDocsGenerator
     private function findDisplayTitleForFile(string $filePath, array $allNodes): ?string
     {
         // Normalize function to handle case and space/underscore differences
-        $normalize = (fn($path) => strtolower(str_replace(' ', '_', $path)));
+        $normalize = (fn ($path) => strtolower(str_replace(' ', '_', $path)));
 
         // Simple approach: find the node that generated this file path
         foreach ($allNodes as $node) {
@@ -1165,7 +1165,7 @@ class MkDocsGenerator
     private function findNodeMetadataForFile(string $filePath, array $allNodes): ?array
     {
         // Normalize function to handle case and space/underscore differences
-        $normalize = (fn($path) => strtolower(str_replace(' ', '_', $path)));
+        $normalize = (fn ($path) => strtolower(str_replace(' ', '_', $path)));
 
         // Find the node that generated this file path
         foreach ($allNodes as $node) {
