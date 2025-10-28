@@ -109,15 +109,12 @@ class MkDocsGenerator
 
             foreach ($files as $file) {
                 if ($file->getExtension() === 'md') {
-                    $staticContentNode = $this->parseStaticContentFile(
+                    $staticContentNodes[] = $this->parseStaticContentFile(
                         $file->getRealPath(),
                         $contentPath,
                         $contentType,
                         $navPrefix
                     );
-                    if ($staticContentNode !== null) {
-                        $staticContentNodes[] = $staticContentNode;
-                    }
                 }
             }
         }
@@ -182,7 +179,7 @@ class MkDocsGenerator
         return null;
     }
 
-    private function parseStaticContentFile(string $filePath, string $contentBasePath, string $contentType, string $navPrefix): ?array
+    private function parseStaticContentFile(string $filePath, string $contentBasePath, string $contentType, string $navPrefix): array
     {
         $content = $this->filesystem->get($filePath);
         $relativePath = str_replace($contentBasePath.'/', '', $filePath);
@@ -693,7 +690,7 @@ class MkDocsGenerator
 
 
         return preg_replace_callback($pattern, function ($matches) use ($registry, $navPathMap, $navIdMap, $sourceOwner) {
-            $customText = $matches[1] ?? null; // Custom link text if provided
+            $customText = $matches[1] !== '' ? $matches[1] : null; // Custom link text if provided
             $refType = $matches[2]; // 'ref' or 'navid'
             $refTarget = $matches[3]; // The actual reference target
 
