@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Xentral\LaravelDocs;
 
@@ -7,8 +7,8 @@ class MarkdownValidator
     /**
      * Validate markdown content for common formatting issues
      *
-     * @param string $content The markdown content to validate
-     * @param string $filePath The file path for error reporting
+     * @param  string  $content  The markdown content to validate
+     * @param  string  $filePath  The file path for error reporting
      * @return array Array of validation warnings
      */
     public function validate(string $content, string $filePath = 'unknown'): array
@@ -30,8 +30,8 @@ class MarkdownValidator
     /**
      * Check for missing blank lines before bulleted or numbered lists
      *
-     * @param string $content The markdown content
-     * @param string $filePath The file path for error reporting
+     * @param  string  $content  The markdown content
+     * @param  string  $filePath  The file path for error reporting
      * @return array Array of warnings
      */
     private function checkBlankLinesBeforeLists(string $content, string $filePath): array
@@ -47,7 +47,7 @@ class MarkdownValidator
             // Check if current line is a list item (bulleted or numbered)
             if ($this->isListItem($currentLine)) {
                 // Check if previous line is not blank and not a list item
-                if (trim($previousLine) !== '' && !$this->isListItem($previousLine)) {
+                if (trim($previousLine) !== '' && ! $this->isListItem($previousLine)) {
                     $hasMissingBlankLine = true;
 
                     // Allow lists after headings (they start with #)
@@ -91,8 +91,8 @@ class MarkdownValidator
     /**
      * Check for absolute file path links that won't work in web documentation
      *
-     * @param string $content The markdown content
-     * @param string $filePath The file path for error reporting
+     * @param  string  $content  The markdown content
+     * @param  string  $filePath  The file path for error reporting
      * @return array Array of warnings
      */
     private function checkAbsoluteFileLinks(string $content, string $filePath): array
@@ -139,8 +139,8 @@ class MarkdownValidator
     /**
      * Suggest how to fix an absolute file link
      *
-     * @param string $linkPath The absolute link path
-     * @param string $linkText The link text
+     * @param  string  $linkPath  The absolute link path
+     * @param  string  $linkText  The link text
      * @return string Suggestion
      */
     private function suggestLinkFix(string $linkPath, string $linkText): string
@@ -153,19 +153,19 @@ class MarkdownValidator
             $className = str_replace('.php', '', $fileName);
 
             return sprintf(
-                "Options:\n" .
-                "      1. Use code block (no link): `%s`\n" .
-                "      2. If class is documented, use: [@ref:...\\%s]\n" .
-                "      3. Use relative path if file exists in docs",
+                "Options:\n".
+                "      1. Use code block (no link): `%s`\n".
+                "      2. If class is documented, use: [@ref:...\\%s]\n".
+                '      3. Use relative path if file exists in docs',
                 $linkPath,
                 $className
             );
         }
 
         return sprintf(
-            "Options:\n" .
-            "      1. Use code block (no link): `%s`\n" .
-            "      2. Use relative path if file exists in docs",
+            "Options:\n".
+            "      1. Use code block (no link): `%s`\n".
+            '      2. Use relative path if file exists in docs',
             $linkPath
         );
     }
@@ -173,8 +173,8 @@ class MarkdownValidator
     /**
      * Check for misuse of @ref syntax with file paths instead of class names
      *
-     * @param string $content The markdown content
-     * @param string $filePath The file path for error reporting
+     * @param  string  $content  The markdown content
+     * @param  string  $filePath  The file path for error reporting
      * @return array Array of warnings
      */
     private function checkRefSyntaxMisuse(string $content, string $filePath): array
@@ -249,7 +249,7 @@ class MarkdownValidator
     /**
      * Suggest how to fix a @ref syntax misuse
      *
-     * @param string $refTarget The incorrect reference target
+     * @param  string  $refTarget  The incorrect reference target
      * @return string Suggestion
      */
     private function suggestRefFix(string $refTarget): string
@@ -268,8 +268,8 @@ class MarkdownValidator
             if (in_array('app', $pathParts)) {
                 $appIndex = array_search('app', $pathParts);
                 $namespaceParts = array_slice($pathParts, $appIndex + 1);
-                if (!empty($namespaceParts)) {
-                    $namespace = 'App\\' . implode('\\', $namespaceParts) . '\\';
+                if (! empty($namespaceParts)) {
+                    $namespace = 'App\\'.implode('\\', $namespaceParts).'\\';
                 }
             }
 
@@ -290,8 +290,7 @@ class MarkdownValidator
     /**
      * Check if a line is a list item (bulleted or numbered)
      *
-     * @param string $line The line to check
-     * @return bool
+     * @param  string  $line  The line to check
      */
     private function isListItem(string $line): bool
     {
@@ -314,9 +313,8 @@ class MarkdownValidator
     /**
      * Truncate a string for display
      *
-     * @param string $text The text to truncate
-     * @param int $length Maximum length
-     * @return string
+     * @param  string  $text  The text to truncate
+     * @param  int  $length  Maximum length
      */
     private function truncate(string $text, int $length = 50): string
     {
@@ -325,13 +323,13 @@ class MarkdownValidator
             return $text;
         }
 
-        return mb_substr($text, 0, $length) . '...';
+        return mb_substr($text, 0, $length).'...';
     }
 
     /**
      * Format validation warnings for display
      *
-     * @param array $warnings Array of warnings
+     * @param  array  $warnings  Array of warnings
      * @return string Formatted warning messages
      */
     public function formatWarnings(array $warnings): string
@@ -340,49 +338,49 @@ class MarkdownValidator
             return '';
         }
 
-        $output = "\n" . str_repeat('=', 80) . "\n";
-        $output .= "Markdown Validation Warnings (" . count($warnings) . " issues found)\n";
-        $output .= str_repeat('=', 80) . "\n\n";
+        $output = "\n".str_repeat('=', 80)."\n";
+        $output .= 'Markdown Validation Warnings ('.count($warnings)." issues found)\n";
+        $output .= str_repeat('=', 80)."\n\n";
 
         foreach ($warnings as $warning) {
             $output .= sprintf(
                 "[%s] %s:%d\n",
-                strtoupper($warning['severity']),
-                basename($warning['file']),
+                strtoupper((string) $warning['severity']),
+                basename((string) $warning['file']),
                 $warning['line']
             );
-            $output .= "  " . $warning['message'] . "\n";
+            $output .= '  '.$warning['message']."\n";
 
             if (isset($warning['context'])) {
                 $output .= "  Context:\n";
 
                 // Show previous line if available
                 if (isset($warning['context']['previous_line'])) {
-                    $output .= "    Line " . ($warning['line'] - 1) . ": " . trim($warning['context']['previous_line']) . "\n";
+                    $output .= '    Line '.($warning['line'] - 1).': '.trim($warning['context']['previous_line'])."\n";
                 }
 
                 // Show current line
                 if (isset($warning['context']['current_line'])) {
-                    $output .= "    Line " . $warning['line'] . ": " . trim($warning['context']['current_line']) . "\n";
+                    $output .= '    Line '.$warning['line'].': '.trim($warning['context']['current_line'])."\n";
                 }
 
                 // Show additional context for absolute links
                 if (isset($warning['context']['link_text']) && isset($warning['context']['link_path'])) {
-                    $output .= "    Link text: " . $warning['context']['link_text'] . "\n";
-                    $output .= "    Link path: " . $warning['context']['link_path'] . "\n";
+                    $output .= '    Link text: '.$warning['context']['link_text']."\n";
+                    $output .= '    Link path: '.$warning['context']['link_path']."\n";
                 }
             }
 
             // Show suggestion if available
             if (isset($warning['suggestion'])) {
                 $output .= "  Suggestion:\n";
-                $output .= "    " . str_replace("\n", "\n    ", $warning['suggestion']) . "\n";
+                $output .= '    '.str_replace("\n", "\n    ", $warning['suggestion'])."\n";
             }
 
             $output .= "\n";
         }
 
-        $output .= str_repeat('=', 80) . "\n";
+        $output .= str_repeat('=', 80)."\n";
 
         return $output;
     }

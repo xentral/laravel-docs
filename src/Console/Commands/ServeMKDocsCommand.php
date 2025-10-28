@@ -36,7 +36,7 @@ class ServeMKDocsCommand extends Command
             if ($errorOutput = trim($process->latestErrorOutput())) {
                 $this->output->error($errorOutput);
             }
-            sleep(1);
+            \Illuminate\Support\Sleep::sleep(1);
         }
         if ($process->running()) {
             $process->stop();
