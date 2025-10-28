@@ -48,8 +48,9 @@ it('processes @ref syntax with auto-generated titles', function () {
     // Capture the auth controller content to verify cross-reference was processed
     $controllerContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/auth-controller\.md$/'), Mockery::on(function($content) use (&$controllerContent) {
+        ->with(Mockery::pattern('/auth-controller\.md$/'), Mockery::on(function ($content) use (&$controllerContent) {
             $controllerContent = $content;
+
             return true;
         }));
 
@@ -122,8 +123,9 @@ it('handles custom link text with @ref and @navid', function () {
     // Capture the content
     $capturedContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/auth\.md$/'), Mockery::on(function($content) use (&$capturedContent) {
+        ->with(Mockery::pattern('/auth\.md$/'), Mockery::on(function ($content) use (&$capturedContent) {
             $capturedContent = $content;
+
             return true;
         }));
 
@@ -154,7 +156,7 @@ it('throws exception for broken @ref references', function () {
     $this->filesystem->shouldReceive('put')->atMost()->once();
 
     // Should throw RuntimeException for broken reference
-    expect(fn() => $this->generator->generate($documentationNodes, '/docs'))
+    expect(fn () => $this->generator->generate($documentationNodes, '/docs'))
         ->toThrow(RuntimeException::class, 'Broken reference: @ref:App\NonExistent\Class');
 });
 
@@ -176,7 +178,7 @@ it('throws exception for broken @navid references', function () {
     $this->filesystem->shouldReceive('put')->atMost()->once();
 
     // Should throw RuntimeException for broken reference
-    expect(fn() => $this->generator->generate($documentationNodes, '/docs'))
+    expect(fn () => $this->generator->generate($documentationNodes, '/docs'))
         ->toThrow(RuntimeException::class, 'Broken reference: @navid:nonexistent-id');
 });
 
@@ -249,8 +251,9 @@ it('resolves relative URLs correctly', function () {
     // Capture the controller content to verify relative URL
     $controllerContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/auth-controller\.md$/'), Mockery::on(function($content) use (&$controllerContent) {
+        ->with(Mockery::pattern('/auth-controller\.md$/'), Mockery::on(function ($content) use (&$controllerContent) {
             $controllerContent = $content;
+
             return true;
         }));
 

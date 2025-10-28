@@ -55,10 +55,11 @@ it('builds referenced-by map from cross-references', function () {
     // Capture content for AuthService to verify "Referenced by" section
     $authServiceContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/auth\.md$/'), Mockery::on(function($content) use (&$authServiceContent) {
+        ->with(Mockery::pattern('/auth\.md$/'), Mockery::on(function ($content) use (&$authServiceContent) {
             if (str_contains($content, 'Main authentication service')) {
                 $authServiceContent = $content;
             }
+
             return true;
         }));
 
@@ -98,10 +99,11 @@ it('generates "Referenced by" sections', function () {
 
     $paymentContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/payment\.md$/'), Mockery::on(function($content) use (&$paymentContent) {
+        ->with(Mockery::pattern('/payment\.md$/'), Mockery::on(function ($content) use (&$paymentContent) {
             if (str_contains($content, 'Payment processing service')) {
                 $paymentContent = $content;
             }
+
             return true;
         }));
 
@@ -141,10 +143,11 @@ it('deduplicates backlink references', function () {
 
     $userServiceContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/user\.md$/'), Mockery::on(function($content) use (&$userServiceContent) {
+        ->with(Mockery::pattern('/user\.md$/'), Mockery::on(function ($content) use (&$userServiceContent) {
             if (str_contains($content, 'User service')) {
                 $userServiceContent = $content;
             }
+
             return true;
         }));
 
@@ -153,7 +156,7 @@ it('deduplicates backlink references', function () {
     $this->generator->generate($documentationNodes, '/docs');
 
     // Verify Controllers/User appears only once in the "Referenced by" section
-    $referencedBySection = substr($userServiceContent, strpos($userServiceContent, '## Referenced by'));
+    $referencedBySection = substr((string) $userServiceContent, strpos((string) $userServiceContent, '## Referenced by'));
     $controllerCount = substr_count($referencedBySection, 'Controllers / User');
 
     expect($controllerCount)->toBe(1);
@@ -204,10 +207,11 @@ it('sorts backlinks by navigation path', function () {
 
     $coreServiceContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/core\.md$/'), Mockery::on(function($content) use (&$coreServiceContent) {
+        ->with(Mockery::pattern('/core\.md$/'), Mockery::on(function ($content) use (&$coreServiceContent) {
             if (str_contains($content, 'Core service')) {
                 $coreServiceContent = $content;
             }
+
             return true;
         }));
 
@@ -216,7 +220,7 @@ it('sorts backlinks by navigation path', function () {
     $this->generator->generate($documentationNodes, '/docs');
 
     // Extract the referenced by section and verify alphabetical ordering
-    $referencedBySection = substr($coreServiceContent, strpos($coreServiceContent, '## Referenced by'));
+    $referencedBySection = substr((string) $coreServiceContent, strpos((string) $coreServiceContent, '## Referenced by'));
 
     // Check that Alpha comes before Beta, and Beta before Zebra
     $alphaPos = strpos($referencedBySection, 'Controllers / Alpha');
@@ -293,8 +297,9 @@ it('does not create referenced by section when no references exist', function ()
 
     $standaloneContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/standalone\.md$/'), Mockery::on(function($content) use (&$standaloneContent) {
+        ->with(Mockery::pattern('/standalone\.md$/'), Mockery::on(function ($content) use (&$standaloneContent) {
             $standaloneContent = $content;
+
             return true;
         }));
 
@@ -333,10 +338,11 @@ it('generates backlinks with relative URLs', function () {
 
     $deepServiceContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/deep-service\.md$/'), Mockery::on(function($content) use (&$deepServiceContent) {
+        ->with(Mockery::pattern('/deep-service\.md$/'), Mockery::on(function ($content) use (&$deepServiceContent) {
             if (str_contains($content, 'Deeply nested')) {
                 $deepServiceContent = $content;
             }
+
             return true;
         }));
 

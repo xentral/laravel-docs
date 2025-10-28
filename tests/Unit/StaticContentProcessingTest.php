@@ -217,8 +217,9 @@ MD;
     // Capture generated content to verify frontmatter was stripped
     $capturedContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/with-frontmatter\.md$/'), Mockery::on(function($content) use (&$capturedContent) {
+        ->with(Mockery::pattern('/with-frontmatter\.md$/'), Mockery::on(function ($content) use (&$capturedContent) {
             $capturedContent = $content;
+
             return true;
         }));
 
@@ -263,8 +264,9 @@ MD;
     // Capture YAML to verify title extraction
     $yamlContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with('/docs/mkdocs.yml', Mockery::on(function($content) use (&$yamlContent) {
+        ->with('/docs/mkdocs.yml', Mockery::on(function ($content) use (&$yamlContent) {
             $yamlContent = $content;
+
             return true;
         }));
 

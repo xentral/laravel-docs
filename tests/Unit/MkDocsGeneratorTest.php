@@ -279,10 +279,11 @@ it('processes cross-references in generated content', function () {
     // Capture content to verify cross-reference was processed
     $controllerContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/data\.md$/'), Mockery::on(function($content) use (&$controllerContent) {
+        ->with(Mockery::pattern('/data\.md$/'), Mockery::on(function ($content) use (&$controllerContent) {
             if (str_contains($content, 'data operations')) {
                 $controllerContent = $content;
             }
+
             return true;
         }));
 
@@ -330,10 +331,11 @@ it('includes "Referenced by" sections in output', function () {
     // Capture core service content
     $coreContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/core\.md$/'), Mockery::on(function($content) use (&$coreContent) {
+        ->with(Mockery::pattern('/core\.md$/'), Mockery::on(function ($content) use (&$coreContent) {
             if (str_contains($content, 'Core service that is referenced')) {
                 $coreContent = $content;
             }
+
             return true;
         }));
 
@@ -368,7 +370,7 @@ it('fails gracefully with informative errors for broken references', function ()
     $this->filesystem->shouldReceive('put')->atMost()->once();
 
     // Should throw RuntimeException with clear error message
-    expect(fn() => $this->generator->generate($documentationNodes, '/docs'))
+    expect(fn () => $this->generator->generate($documentationNodes, '/docs'))
         ->toThrow(RuntimeException::class, 'Broken reference: @ref:App\NonExistent\Service');
 });
 

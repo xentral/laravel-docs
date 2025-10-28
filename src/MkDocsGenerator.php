@@ -9,11 +9,12 @@ use Symfony\Component\Yaml\Yaml;
 class MkDocsGenerator
 {
     private array $validationWarnings = [];
+
     private readonly MarkdownValidator $validator;
 
     public function __construct(private readonly Filesystem $filesystem)
     {
-        $this->validator = new MarkdownValidator();
+        $this->validator = new MarkdownValidator;
     }
 
     public function generate(array $documentationNodes, string $docsBaseDir): void
@@ -24,12 +25,12 @@ class MkDocsGenerator
         $staticContentNodes = $this->parseStaticContentFiles($docsBaseDir);
 
         // Check for error-level validation warnings and fail early
-        $errors = array_filter($this->validationWarnings, fn($w) => $w['severity'] === 'error');
-        if (!empty($errors)) {
+        $errors = array_filter($this->validationWarnings, fn ($w) => $w['severity'] === 'error');
+        if (! empty($errors)) {
             echo $this->validator->formatWarnings($this->validationWarnings);
             throw new \RuntimeException(
                 sprintf(
-                    "Documentation generation failed due to %d validation error(s). Please fix the errors above.",
+                    'Documentation generation failed due to %d validation error(s). Please fix the errors above.',
                     count($errors)
                 )
             );
@@ -87,7 +88,7 @@ class MkDocsGenerator
         $this->dumpAsYaml($config, $docsBaseDir.'/mkdocs.yml');
 
         // Display validation warnings if any were found
-        if (!empty($this->validationWarnings)) {
+        if (! empty($this->validationWarnings)) {
             echo $this->validator->formatWarnings($this->validationWarnings);
         }
     }
@@ -99,9 +100,9 @@ class MkDocsGenerator
 
         foreach ($staticContentConfig as $contentType => $config) {
             $contentPath = $config['path'] ?? null;
-            $navPrefix = $config['nav_prefix'] ?? ucfirst($contentType);
+            $navPrefix = $config['nav_prefix'] ?? ucfirst((string) $contentType);
 
-            if (!$contentPath || !$this->filesystem->exists($contentPath)) {
+            if (! $contentPath || ! $this->filesystem->exists($contentPath)) {
                 continue;
             }
 
@@ -169,7 +170,7 @@ class MkDocsGenerator
             }
 
             // 4. Check nav path last segment match (fallback)
-            $navPathSegments = array_map('trim', explode('/', $node['navPath']));
+            $navPathSegments = array_map(trim(...), explode('/', (string) $node['navPath']));
             $lastSegment = array_pop($navPathSegments);
             if (strtolower($lastSegment) === strtolower($parentRef)) {
                 return $node;
@@ -186,7 +187,7 @@ class MkDocsGenerator
 
         // Validate markdown content
         $warnings = $this->validator->validate($content, $filePath);
-        if (!empty($warnings)) {
+        if (! empty($warnings)) {
             $this->validationWarnings = array_merge($this->validationWarnings, $warnings);
         }
 
@@ -201,8 +202,8 @@ class MkDocsGenerator
         $displayTitle = $this->extractTitleFromContent($lines);
 
         // If no markdown title found, fall back to navigation path (last segment)
-        if (!$displayTitle) {
-            $pathSegments = array_map('trim', explode('/', $navPath));
+        if (! $displayTitle) {
+            $pathSegments = array_map(trim(...), explode('/', (string) $navPath));
             $displayTitle = array_pop($pathSegments);
         }
 
@@ -239,8 +240,8 @@ class MkDocsGenerator
             $trimmedLine = trim($line);
 
             // Handle YAML frontmatter (only if --- is at the beginning of the file)
-            if ($trimmedLine === '---' && !$frontMatterEnded) {
-                if (!$inFrontMatter) {
+            if ($trimmedLine === '---' && ! $frontMatterEnded) {
+                if (! $inFrontMatter) {
                     // Only treat as frontmatter if this is the first line or only whitespace before
                     $isFirstContent = true;
                     for ($i = 0; $i < $lineIndex; $i++) {
@@ -252,12 +253,14 @@ class MkDocsGenerator
 
                     if ($isFirstContent) {
                         $inFrontMatter = true;
+
                         continue;
                     }
                     // Otherwise, it's just a horizontal rule, keep it
                 } else {
                     $inFrontMatter = false;
                     $frontMatterEnded = true;
+
                     continue;
                 }
             }
@@ -268,41 +271,47 @@ class MkDocsGenerator
             }
 
             // Check for @navid lines (only at beginning of trimmed line, only first occurrence)
-            if (!$navIdFound && str_starts_with($trimmedLine, '@navid ')) {
+            if (! $navIdFound && str_starts_with($trimmedLine, '@navid ')) {
                 $navId = trim(substr($trimmedLine, strlen('@navid')));
                 $navIdFound = true;
+
                 continue; // Exclude @navid line from content
             }
 
             // Check for @navparent lines (only at beginning of trimmed line, only first occurrence)
-            if (!$navParentFound && str_starts_with($trimmedLine, '@navparent ')) {
+            if (! $navParentFound && str_starts_with($trimmedLine, '@navparent ')) {
                 $navParent = trim(substr($trimmedLine, strlen('@navparent')));
                 $navParentFound = true;
+
                 continue; // Exclude @navparent line from content
             }
 
             // Check for @nav lines (only at beginning of trimmed line, only first occurrence)
-            if (!$navFound && str_starts_with($trimmedLine, '@nav ')) {
+            if (! $navFound && str_starts_with($trimmedLine, '@nav ')) {
                 $navPath = trim(substr($trimmedLine, strlen('@nav')));
                 $navFound = true;
+
                 continue; // Exclude @nav line from content
             }
 
             // Check for @uses lines
             if (str_starts_with($trimmedLine, '@uses ')) {
                 $uses[] = trim(substr($trimmedLine, strlen('@uses')));
+
                 continue; // Exclude @uses line from content
             }
 
             // Check for @link lines
             if (str_starts_with($trimmedLine, '@link ')) {
                 $links[] = trim(substr($trimmedLine, strlen('@link')));
+
                 continue; // Exclude @link line from content
             }
 
             // Check for @links lines
             if (str_starts_with($trimmedLine, '@links ')) {
                 $links[] = trim(substr($trimmedLine, strlen('@links')));
+
                 continue; // Exclude @links line from content
             }
 
@@ -330,7 +339,7 @@ class MkDocsGenerator
                 $pathParts[$i] = ucwords(str_replace('_', ' ', $pathParts[$i]));
             }
 
-            $navPath = $navPrefix . ' / ' . implode(' / ', $pathParts);
+            $navPath = $navPrefix.' / '.implode(' / ', $pathParts);
         }
 
         return [$navPath, implode("\n", $cleanedLines), $navId, $navParent, $uses, $links];
@@ -339,7 +348,7 @@ class MkDocsGenerator
     private function extractTitleFromContent(array $lines): ?string
     {
         foreach ($lines as $line) {
-            $trimmedLine = trim($line);
+            $trimmedLine = trim((string) $line);
 
             // Skip empty lines
             if (empty($trimmedLine)) {
@@ -365,12 +374,12 @@ class MkDocsGenerator
         foreach ($documentationNodes as $node) {
             // Build path based on where files are actually placed in the generated directory
             // Both static and PHPDoc content use the navPath structure for file placement
-            $pathSegments = array_map('trim', explode('/', (string) $node['navPath']));
+            $pathSegments = array_map(trim(...), explode('/', (string) $node['navPath']));
             $pageTitle = array_pop($pathSegments);
 
             if (isset($node['type']) && $node['type'] === 'static_content') {
                 // For static content, preserve original filename from owner
-                $ownerParts = explode(':', $node['owner'], 2);
+                $ownerParts = explode(':', (string) $node['owner'], 2);
                 if (count($ownerParts) === 2) {
                     $fileName = basename($ownerParts[1]); // e.g., "SHADOW_MODE_SPECIFICATION.md"
                     $urlParts = $pathSegments; // Use navPath segments as-is (no slugging for static content dirs)
@@ -403,7 +412,7 @@ class MkDocsGenerator
     {
         $navIdMap = [];
         foreach ($documentationNodes as $node) {
-            if (!empty($node['navId'])) {
+            if (! empty($node['navId'])) {
                 $navIdMap[$node['navId']] = $node['owner'];
             }
         }
@@ -459,10 +468,10 @@ class MkDocsGenerator
 
                 // Track the reference
                 if ($targetOwner) {
-                    if (!isset($referencedBy[$targetOwner])) {
+                    if (! isset($referencedBy[$targetOwner])) {
                         $referencedBy[$targetOwner] = [];
                     }
-                    if (!in_array($sourceOwner, $referencedBy[$targetOwner])) {
+                    if (! in_array($sourceOwner, $referencedBy[$targetOwner])) {
                         $referencedBy[$targetOwner][] = $sourceOwner;
                     }
                 }
@@ -478,19 +487,19 @@ class MkDocsGenerator
         $pathRegistry = [];
 
         foreach ($documentationNodes as $node) {
-            $pathSegments = array_map('trim', explode('/', (string) $node['navPath']));
+            $pathSegments = array_map(trim(...), explode('/', (string) $node['navPath']));
             $originalPageTitle = array_pop($pathSegments);
             $pageTitle = $originalPageTitle;
 
             // For static content, preserve everything exactly as-is
             if (isset($node['type']) && $node['type'] === 'static_content') {
                 // Extract original filename from the owner (format: "contentType:relative/path.md")
-                $ownerParts = explode(':', $node['owner'], 2);
+                $ownerParts = explode(':', (string) $node['owner'], 2);
                 if (count($ownerParts) === 2) {
                     $originalPath = $ownerParts[1];
                     $pageFileName = basename($originalPath); // Keep original filename exactly
                 } else {
-                    $pageFileName = $originalPageTitle . '.md'; // Fallback
+                    $pageFileName = $originalPageTitle.'.md'; // Fallback
                 }
             } else {
                 // For PHPDoc content, use existing conflict resolution with slugging
@@ -645,8 +654,8 @@ class MkDocsGenerator
         $content = $node['description'];
 
         // If the content doesn't start with a title, add one
-        if (! preg_match('/^#\s+/', trim($content))) {
-            $content = "# {$pageTitle}\n\n" . $content;
+        if (! preg_match('/^#\s+/', trim((string) $content))) {
+            $content = "# {$pageTitle}\n\n".$content;
         }
 
         // Process inline references in the content
@@ -688,7 +697,6 @@ class MkDocsGenerator
 
         $pattern = '/\[(?:([^\]]+)\]\()?@(ref|navid):([^)\]\s]+)[\])]/';
 
-
         return preg_replace_callback($pattern, function ($matches) use ($registry, $navPathMap, $navIdMap, $sourceOwner) {
             $customText = $matches[1] !== '' ? $matches[1] : null; // Custom link text if provided
             $refType = $matches[2]; // 'ref' or 'navid'
@@ -699,18 +707,18 @@ class MkDocsGenerator
 
             if ($resolvedLink === null) {
                 // Reference couldn't be resolved - throw build error with helpful context
-                $sourceInfo = $sourceOwner ? " in {$sourceOwner}" : "";
-                $suggestion = "";
+                $sourceInfo = $sourceOwner ? " in {$sourceOwner}" : '';
+                $suggestion = '';
 
                 if ($refType === 'ref') {
-                    $suggestion = "\n\nThe class '{$refTarget}' is not documented. To fix this:\n" .
-                                  "1. Add @docs annotation to the class PHPDoc comment\n" .
-                                  "2. Re-run docs generation\n" .
-                                  "3. Or use a code block instead: `" . basename(str_replace('\\', '/', $refTarget)) . "`";
+                    $suggestion = "\n\nThe class '{$refTarget}' is not documented. To fix this:\n".
+                                  "1. Add @docs annotation to the class PHPDoc comment\n".
+                                  "2. Re-run docs generation\n".
+                                  '3. Or use a code block instead: `'.basename(str_replace('\\', '/', $refTarget)).'`';
                 } elseif ($refType === 'navid') {
-                    $suggestion = "\n\nThe navigation ID '{$refTarget}' doesn't exist. Check:\n" .
-                                  "1. @navid annotation exists in target document\n" .
-                                  "2. No typos in the navigation ID\n" .
+                    $suggestion = "\n\nThe navigation ID '{$refTarget}' doesn't exist. Check:\n".
+                                  "1. @navid annotation exists in target document\n".
+                                  "2. No typos in the navigation ID\n".
                                   "3. Or use a code block instead: `{$refTarget}`";
                 }
 
@@ -743,7 +751,7 @@ class MkDocsGenerator
         $cleanTarget = ltrim($ownerTarget, '\\');
 
         // Check if this owner exists in our registry
-        if (!isset($registry[$cleanTarget])) {
+        if (! isset($registry[$cleanTarget])) {
             return null;
         }
 
@@ -766,7 +774,7 @@ class MkDocsGenerator
     private function resolveRefByNavId(string $navIdTarget, array $navIdMap, array $registry, array $navPathMap, string $sourceOwner): ?array
     {
         // Check if this navId exists in our map
-        if (!isset($navIdMap[$navIdTarget])) {
+        if (! isset($navIdMap[$navIdTarget])) {
             return null;
         }
 
@@ -774,7 +782,7 @@ class MkDocsGenerator
         $targetOwner = $navIdMap[$navIdTarget];
 
         // Check if this owner exists in our registry
-        if (!isset($registry[$targetOwner])) {
+        if (! isset($registry[$targetOwner])) {
             return null;
         }
 
@@ -807,7 +815,7 @@ class MkDocsGenerator
         // Fallback to nav path last segment
         if (isset($navPathMap[$ownerTarget])) {
             $navPath = $navPathMap[$ownerTarget];
-            $pathSegments = array_map('trim', explode('/', $navPath));
+            $pathSegments = array_map(trim(...), explode('/', $navPath));
             $lastSegment = array_pop($pathSegments);
             if ($lastSegment) {
                 return $lastSegment;
@@ -816,6 +824,7 @@ class MkDocsGenerator
 
         // Final fallback to class name (extract class name from full path)
         $classParts = explode('\\', $ownerTarget);
+
         return array_pop($classParts) ?: $ownerTarget;
     }
 
@@ -861,9 +870,10 @@ class MkDocsGenerator
         $uniqueReferences = array_unique($referencedBy[$ownerKey]);
 
         // Sort references by navigation path for meaningful ordering
-        usort($uniqueReferences, function($a, $b) use ($navPathMap) {
+        usort($uniqueReferences, function ($a, $b) use ($navPathMap) {
             $navPathA = $navPathMap[$a] ?? $a;
             $navPathB = $navPathMap[$b] ?? $b;
+
             return strcasecmp($navPathA, $navPathB);
         });
 
@@ -1027,7 +1037,7 @@ class MkDocsGenerator
                     'type' => $this->getNavItemType($dirName),
                     'sortKey' => strtolower($dirName),
                     'isChild' => false,
-                    'parentKey' => null
+                    'parentKey' => null,
                 ];
             } else {
                 // For files, find the display title and node metadata
@@ -1047,7 +1057,7 @@ class MkDocsGenerator
 
                 if ($isChild) {
                     // Add Unicode downward arrow with tip rightwards (↘) as prefix
-                    $title = '↳ ' . $title;
+                    $title = '↳ '.$title;
                 }
 
                 $navItems[] = [
@@ -1056,25 +1066,26 @@ class MkDocsGenerator
                     'type' => $this->getNavItemType($title),
                     'sortKey' => strtolower($displayTitle ?? pathinfo((string) $key, PATHINFO_FILENAME)),
                     'isChild' => $isChild,
-                    'parentKey' => $parentKey
+                    'parentKey' => $parentKey,
                 ];
             }
         }
 
         // Sort the nav items with new parent-child logic
-        usort($navItems, function($a, $b) use ($allNodes) {
+        usort($navItems, function ($a, $b) use ($allNodes) {
             // Apply type priority first: regular -> static -> uncategorised
             if ($a['type'] !== $b['type']) {
                 $typePriority = ['regular' => 1, 'static' => 2, 'uncategorised' => 3];
+
                 return $typePriority[$a['type']] <=> $typePriority[$b['type']];
             }
 
             // Within same type, handle parent-child relationships
             // If one is child and the other is parent, parent comes first
-            if ($a['isChild'] && !$b['isChild'] && $a['parentKey'] === $this->findParentIdentifier($b, $allNodes)) {
+            if ($a['isChild'] && ! $b['isChild'] && $a['parentKey'] === $this->findParentIdentifier($b, $allNodes)) {
                 return 1; // a (child) comes after b (parent)
             }
-            if ($b['isChild'] && !$a['isChild'] && $b['parentKey'] === $this->findParentIdentifier($a, $allNodes)) {
+            if ($b['isChild'] && ! $a['isChild'] && $b['parentKey'] === $this->findParentIdentifier($a, $allNodes)) {
                 return -1; // a (parent) comes before b (child)
             }
 
@@ -1106,7 +1117,7 @@ class MkDocsGenerator
         // Check if this is a static content section
         $staticContentConfig = config('docs.static_content', []);
         foreach ($staticContentConfig as $contentType => $config) {
-            $navPrefix = $config['nav_prefix'] ?? ucfirst($contentType);
+            $navPrefix = $config['nav_prefix'] ?? ucfirst((string) $contentType);
             if (strtolower($dirName) === strtolower($navPrefix)) {
                 return 'static';
             }
@@ -1119,21 +1130,19 @@ class MkDocsGenerator
     private function findDisplayTitleForFile(string $filePath, array $allNodes): ?string
     {
         // Normalize function to handle case and space/underscore differences
-        $normalize = function($path) {
-            return strtolower(str_replace(' ', '_', $path));
-        };
+        $normalize = (fn($path) => strtolower(str_replace(' ', '_', $path)));
 
         // Simple approach: find the node that generated this file path
         foreach ($allNodes as $node) {
             // For static content, check if the registry path matches
             if (isset($node['type']) && $node['type'] === 'static_content') {
-                $ownerParts = explode(':', $node['owner'], 2);
+                $ownerParts = explode(':', (string) $node['owner'], 2);
                 if (count($ownerParts) === 2) {
                     $contentType = $ownerParts[0]; // e.g., "specifications"
                     $relativePath = $ownerParts[1]; // e.g., "fulfillment/warehouse_refactoring/file.md"
 
                     // Build the full expected path: contentType/relativePath
-                    $expectedFullPath = $contentType . '/' . $relativePath;
+                    $expectedFullPath = $contentType.'/'.$relativePath;
 
                     // Normalize both paths for comparison
                     $normalizedFilePath = $normalize($filePath);
@@ -1156,21 +1165,19 @@ class MkDocsGenerator
     private function findNodeMetadataForFile(string $filePath, array $allNodes): ?array
     {
         // Normalize function to handle case and space/underscore differences
-        $normalize = function($path) {
-            return strtolower(str_replace(' ', '_', $path));
-        };
+        $normalize = (fn($path) => strtolower(str_replace(' ', '_', $path)));
 
         // Find the node that generated this file path
         foreach ($allNodes as $node) {
             // For static content, check if the registry path matches
             if (isset($node['type']) && $node['type'] === 'static_content') {
-                $ownerParts = explode(':', $node['owner'], 2);
+                $ownerParts = explode(':', (string) $node['owner'], 2);
                 if (count($ownerParts) === 2) {
                     $contentType = $ownerParts[0]; // e.g., "specifications"
                     $relativePath = $ownerParts[1]; // e.g., "fulfillment/warehouse_refactoring/file.md"
 
                     // Build the full expected path: contentType/relativePath
-                    $expectedFullPath = $contentType . '/' . $relativePath;
+                    $expectedFullPath = $contentType.'/'.$relativePath;
 
                     // Normalize both paths for comparison
                     $normalizedFilePath = $normalize($filePath);
@@ -1238,7 +1245,7 @@ class MkDocsGenerator
         $relativePrefix = str_repeat('../', count($baseParts));
 
         // Combine with remaining target path
-        return $relativePrefix . implode('/', $pathParts);
+        return $relativePrefix.implode('/', $pathParts);
     }
 
     private function toCleanUrl(string $path): string
@@ -1262,7 +1269,7 @@ class MkDocsGenerator
     /**
      * Fix PHP code blocks by prepending <?php for proper syntax highlighting
      *
-     * @param string $content The markdown content
+     * @param  string  $content  The markdown content
      * @return string The fixed content
      */
     private function fixPhpCodeBlocks(string $content): string
@@ -1274,12 +1281,12 @@ class MkDocsGenerator
                 $codeContent = $matches[1];
 
                 // Check if it already starts with <?php
-                if (!preg_match('/^\s*<\?php/', $codeContent)) {
+                if (! preg_match('/^\s*<\?php/', $codeContent)) {
                     // Prepend <?php\n
-                    $codeContent = "<?php\n" . $codeContent;
+                    $codeContent = "<?php\n".$codeContent;
                 }
 
-                return "```php\n" . $codeContent . "```";
+                return "```php\n".$codeContent.'```';
             },
             $content
         );
