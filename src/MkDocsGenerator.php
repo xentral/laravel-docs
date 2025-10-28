@@ -683,12 +683,14 @@ class MkDocsGenerator
     {
         // Process [@ref:...] and [@navid:...] syntax
         // Pattern explanation:
-        // (?:\[([^\]]+)\]\()?  - Optional custom link text in [text]( format
+        // \[                  - Opening bracket (always consumed)
+        // (?:([^\]]+)\]\()?   - Optional custom link text in [text]( format
         // @(ref|navid):       - The @ref: or @navid: syntax
         // ([^)\]\s]+)         - The reference target (no spaces, closing parens, or brackets)
-        // [\])]?              - Optional closing bracket or paren
+        // [\])]               - Closing bracket or paren
 
-        $pattern = '/(?:\[([^\]]+)\]\()?@(ref|navid):([^)\]\s]+)[\])]?/';
+        $pattern = '/\[(?:([^\]]+)\]\()?@(ref|navid):([^)\]\s]+)[\])]/';
+
 
         return preg_replace_callback($pattern, function ($matches) use ($registry, $navPathMap, $navIdMap, $sourceOwner) {
             $customText = $matches[1] ?? null; // Custom link text if provided
