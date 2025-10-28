@@ -238,14 +238,26 @@ class MkDocsGenerator
         $navIdFound = false;
         $navParentFound = false;
 
-        foreach ($lines as $line) {
+        foreach ($lines as $lineIndex => $line) {
             $trimmedLine = trim($line);
 
-            // Handle YAML frontmatter
+            // Handle YAML frontmatter (only if --- is at the beginning of the file)
             if ($trimmedLine === '---' && !$frontMatterEnded) {
                 if (!$inFrontMatter) {
-                    $inFrontMatter = true;
-                    continue;
+                    // Only treat as frontmatter if this is the first line or only whitespace before
+                    $isFirstContent = true;
+                    for ($i = 0; $i < $lineIndex; $i++) {
+                        if (trim($lines[$i]) !== '') {
+                            $isFirstContent = false;
+                            break;
+                        }
+                    }
+
+                    if ($isFirstContent) {
+                        $inFrontMatter = true;
+                        continue;
+                    }
+                    // Otherwise, it's just a horizontal rule, keep it
                 } else {
                     $inFrontMatter = false;
                     $frontMatterEnded = true;
