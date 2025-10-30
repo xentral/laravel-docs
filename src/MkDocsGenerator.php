@@ -1145,7 +1145,7 @@ class MkDocsGenerator
     private function findDisplayTitleForFile(string $filePath, array $allNodes): ?string
     {
         // Normalize function to handle case and space/underscore differences
-        $normalize = (fn($path) => strtolower(str_replace(' ', '_', $path)));
+        $normalize = (fn ($path) => strtolower(str_replace(' ', '_', $path)));
 
         // Simple approach: find the node that generated this file path
         foreach ($allNodes as $node) {
@@ -1180,7 +1180,7 @@ class MkDocsGenerator
     private function findNodeMetadataForFile(string $filePath, array $allNodes, array $reverseRegistry = []): ?array
     {
         // Normalize function to handle case and space/underscore differences
-        $normalize = (fn($path) => strtolower(str_replace(' ', '_', $path)));
+        $normalize = (fn ($path) => strtolower(str_replace(' ', '_', $path)));
 
         // Find the node that generated this file path
         foreach ($allNodes as $node) {
@@ -1207,7 +1207,7 @@ class MkDocsGenerator
         }
 
         // For PHPDoc content, use the reverse registry to find the owner
-        if (!empty($reverseRegistry) && isset($reverseRegistry[$filePath])) {
+        if (! empty($reverseRegistry) && isset($reverseRegistry[$filePath])) {
             $owner = $reverseRegistry[$filePath];
 
             // Find the node with this owner
@@ -1260,8 +1260,8 @@ class MkDocsGenerator
         $path = preg_replace('/\.md$/', '', $path);
         $base = preg_replace('/\.md$/', '', $base);
 
-        $pathParts = explode('/', $path);
-        $baseParts = explode('/', $base);
+        $pathParts = explode('/', (string) $path);
+        $baseParts = explode('/', (string) $base);
 
         // Remove common path prefix
         while (count($pathParts) > 0 && count($baseParts) > 0 && $pathParts[0] === $baseParts[0]) {
