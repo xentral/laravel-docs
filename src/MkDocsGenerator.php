@@ -61,6 +61,9 @@ class MkDocsGenerator
         $navIdMap = $this->buildNavIdMap($processedNodes);
         $usedBy = $this->buildUsedByMap($processedNodes);
 
+        // Build reverse registry for file path -> owner lookup (needed for navigation hierarchy)
+        $reverseRegistry = $this->buildReverseRegistry($registry);
+
         // Build cross-reference maps for bi-directional linking
         $referencedBy = $this->buildReferencedByMap($processedNodes, $registry, $navPathMap, $navIdMap);
 
@@ -79,7 +82,7 @@ class MkDocsGenerator
         $this->generateFiles($docTree, $docsOutputDir);
 
         // Generate navigation structure with title mapping
-        $navStructure = $this->generateNavStructure($docTree, '', $navPathMap, $processedNodes);
+        $navStructure = $this->generateNavStructure($docTree, '', $navPathMap, $processedNodes, $reverseRegistry);
         array_unshift($navStructure, ['Home' => 'index.md']);
 
         // Generate config
@@ -396,6 +399,18 @@ class MkDocsGenerator
         }
 
         return $registry;
+    }
+
+    private function buildReverseRegistry(array $registry): array
+    {
+        // Build reverse mapping: file path -> owner
+        // This allows us to look up which node generated a specific file path
+        $reverseRegistry = [];
+        foreach ($registry as $owner => $filePath) {
+            $reverseRegistry[$filePath] = $owner;
+        }
+
+        return $reverseRegistry;
     }
 
     private function buildNavPathMap(array $documentationNodes): array
@@ -1016,7 +1031,7 @@ class MkDocsGenerator
         }
     }
 
-    private function generateNavStructure(array $tree, string $pathPrefix = '', array $navPathMap = [], array $allNodes = []): array
+    private function generateNavStructure(array $tree, string $pathPrefix = '', array $navPathMap = [], array $allNodes = [], array $reverseRegistry = []): array
     {
         $navItems = [];
 
@@ -1033,7 +1048,7 @@ class MkDocsGenerator
                 $dirName = ucwords(str_replace(['_', '-'], ' ', $key));
                 $navItems[] = [
                     'title' => $dirName,
-                    'content' => $this->generateNavStructure($value, $pathPrefix.$key.'/', $navPathMap, $allNodes),
+                    'content' => $this->generateNavStructure($value, $pathPrefix.$key.'/', $navPathMap, $allNodes, $reverseRegistry),
                     'type' => $this->getNavItemType($dirName),
                     'sortKey' => strtolower($dirName),
                     'isChild' => false,
@@ -1042,7 +1057,7 @@ class MkDocsGenerator
             } else {
                 // For files, find the display title and node metadata
                 $displayTitle = $this->findDisplayTitleForFile($filePath, $allNodes);
-                $nodeMetadata = $this->findNodeMetadataForFile($filePath, $allNodes);
+                $nodeMetadata = $this->findNodeMetadataForFile($filePath, $allNodes, $reverseRegistry);
 
                 if ($displayTitle) {
                     $title = $displayTitle;
@@ -1072,7 +1087,7 @@ class MkDocsGenerator
         }
 
         // Sort the nav items with new parent-child logic
-        usort($navItems, function ($a, $b) use ($allNodes) {
+        usort($navItems, function ($a, $b) use ($allNodes, $reverseRegistry) {
             // Apply type priority first: regular -> static -> uncategorised
             if ($a['type'] !== $b['type']) {
                 $typePriority = ['regular' => 1, 'static' => 2, 'uncategorised' => 3];
@@ -1082,10 +1097,10 @@ class MkDocsGenerator
 
             // Within same type, handle parent-child relationships
             // If one is child and the other is parent, parent comes first
-            if ($a['isChild'] && ! $b['isChild'] && $a['parentKey'] === $this->findParentIdentifier($b, $allNodes)) {
+            if ($a['isChild'] && ! $b['isChild'] && $a['parentKey'] === $this->findParentIdentifier($b, $allNodes, $reverseRegistry)) {
                 return 1; // a (child) comes after b (parent)
             }
-            if ($b['isChild'] && ! $a['isChild'] && $b['parentKey'] === $this->findParentIdentifier($a, $allNodes)) {
+            if ($b['isChild'] && ! $a['isChild'] && $b['parentKey'] === $this->findParentIdentifier($a, $allNodes, $reverseRegistry)) {
                 return -1; // a (parent) comes before b (child)
             }
 
@@ -1162,7 +1177,7 @@ class MkDocsGenerator
         return null;
     }
 
-    private function findNodeMetadataForFile(string $filePath, array $allNodes): ?array
+    private function findNodeMetadataForFile(string $filePath, array $allNodes, array $reverseRegistry = []): ?array
     {
         // Normalize function to handle case and space/underscore differences
         $normalize = (fn ($path) => strtolower(str_replace(' ', '_', $path)));
@@ -1188,23 +1203,31 @@ class MkDocsGenerator
                         return $node; // Return the entire node as metadata
                     }
                 }
-            } else {
-                // For PHPDoc content, we could match based on generated paths
-                // This would require more complex path matching logic
-                // For now, we'll skip this and handle only static content
+            }
+        }
+
+        // For PHPDoc content, use the reverse registry to find the owner
+        if (! empty($reverseRegistry) && isset($reverseRegistry[$filePath])) {
+            $owner = $reverseRegistry[$filePath];
+
+            // Find the node with this owner
+            foreach ($allNodes as $node) {
+                if ($node['owner'] === $owner) {
+                    return $node; // Return the entire node as metadata
+                }
             }
         }
 
         return null;
     }
 
-    private function findParentIdentifier(array $navItem, array $allNodes): ?string
+    private function findParentIdentifier(array $navItem, array $allNodes, array $reverseRegistry = []): ?string
     {
         // For navigation items that are files, we need to find their corresponding node
         // and return the parent identifier (navId or owner)
         if (isset($navItem['content']) && is_string($navItem['content'])) {
             $filePath = $navItem['content'];
-            $nodeMetadata = $this->findNodeMetadataForFile($filePath, $allNodes);
+            $nodeMetadata = $this->findNodeMetadataForFile($filePath, $allNodes, $reverseRegistry);
 
             if ($nodeMetadata) {
                 return $nodeMetadata['navId'] ?? $nodeMetadata['owner'] ?? null;
@@ -1231,9 +1254,14 @@ class MkDocsGenerator
         // Calculate proper relative path between two locations in the docs tree
         // This handles cross-references between different directory structures
         // using proper ../ notation that MkDocs expects
+        //
+        // Strip .md extension from both paths before calculating relative path
+        // because MkDocs serves each .md file as a directory (e.g., main-process.md -> /main-process/)
+        $path = preg_replace('/\.md$/', '', $path);
+        $base = preg_replace('/\.md$/', '', $base);
 
-        $pathParts = explode('/', $path);
-        $baseParts = explode('/', dirname($base));
+        $pathParts = explode('/', (string) $path);
+        $baseParts = explode('/', (string) $base);
 
         // Remove common path prefix
         while (count($pathParts) > 0 && count($baseParts) > 0 && $pathParts[0] === $baseParts[0]) {
