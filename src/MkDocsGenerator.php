@@ -700,22 +700,88 @@ class MkDocsGenerator
         return $content;
     }
 
+    private function processMermaidReferences(string $content, array $registry, array $navPathMap, array $navIdMap, string $sourceOwner): string
+    {
+        // Process @navid references within Mermaid code blocks
+        // Pattern to match Mermaid code blocks: ```mermaid ... ```
+        return preg_replace_callback(
+            '/^```mermaid\n((?:(?!^```)[\s\S])*?)^```/m',
+            function ($matches) use ($registry, $navPathMap, $navIdMap, $sourceOwner) {
+                $mermaidContent = $matches[1];
+
+                // Process click events with @navid references within the Mermaid content
+                // Pattern: click element "@navid:target" "tooltip" or click element '@navid:target' 'tooltip'
+                // Also supports: click element "@navid:target#fragment" "tooltip"
+                // Element names can contain letters, numbers, underscores, hyphens, and dots
+                // Tooltip is optional
+                $clickPattern = '/click\s+([a-zA-Z0-9_.-]+)\s+(["\'])@(ref|navid):([^#"\']+)(?:#([^"\']+))?\2(?:\s+(["\'])([^"\']+)\6)?/';
+
+                $processedMermaidContent = preg_replace_callback(
+                    $clickPattern,
+                    function ($clickMatches) use ($registry, $navPathMap, $navIdMap, $sourceOwner) {
+                        $element = $clickMatches[1]; // The Mermaid element to click
+                        $refType = $clickMatches[3]; // 'ref' or 'navid' (adjusted index due to quote capture)
+                        $refTarget = $clickMatches[4]; // The reference target (adjusted index)
+                        $fragment = $clickMatches[5] ?? null; // Optional fragment (adjusted index)
+                        $tooltip = $clickMatches[7] ?? null; // The tooltip text (optional, adjusted index)
+
+                        // Resolve the reference
+                        $resolvedLink = $this->resolveReference($refType, $refTarget, $registry, $navPathMap, $navIdMap, $sourceOwner);
+
+                        if ($resolvedLink === null) {
+                            // Reference couldn't be resolved - throw build error with helpful context
+                            $sourceInfo = $sourceOwner ? " in {$sourceOwner}" : '';
+                            $fragmentInfo = $fragment ? "#{$fragment}" : '';
+
+                            throw new \RuntimeException("Broken Mermaid reference: @{$refType}:{$refTarget}{$fragmentInfo} in Mermaid diagram{$sourceInfo}");
+                        }
+
+                        $linkUrl = $resolvedLink['url'];
+
+                        // Append fragment identifier if provided
+                        if ($fragment) {
+                            $linkUrl .= '#' . $fragment;
+                        }
+
+                        // Return the processed click event with resolved URL
+                        // Include tooltip only if it was provided
+                        if ($tooltip !== null) {
+                            return "click {$element} \"{$linkUrl}\" \"{$tooltip}\"";
+                        } else {
+                            return "click {$element} \"{$linkUrl}\"";
+                        }
+                    },
+                    $mermaidContent
+                );
+
+                // Return the processed Mermaid block
+                return "```mermaid\n{$processedMermaidContent}```";
+            },
+            $content
+        );
+    }
+
     private function processInlineReferences(string $content, array $registry, array $navPathMap, array $navIdMap, string $sourceOwner): string
     {
-        // Process [@ref:...] and [@navid:...] syntax
-        // Pattern explanation:
-        // \[                  - Opening bracket (always consumed)
-        // (?:([^\]]+)\]\()?   - Optional custom link text in [text]( format
-        // @(ref|navid):       - The @ref: or @navid: syntax
-        // ([^)\]\s]+)         - The reference target (no spaces, closing parens, or brackets)
-        // [\])]               - Closing bracket or paren
+        // First, process Mermaid code blocks to handle @navid references within them
+        $content = $this->processMermaidReferences($content, $registry, $navPathMap, $navIdMap, $sourceOwner);
 
-        $pattern = '/\[(?:([^\]]+)\]\()?@(ref|navid):([^)\]\s]+)[\])]/';
+        // Process [@ref:...] and [@navid:...] syntax with optional fragment support
+        // Pattern explanation:
+        // \[                     - Opening bracket (always consumed)
+        // (?:([^\]]+)\]\()?      - Optional custom link text in [text]( format
+        // @(ref|navid):          - The @ref: or @navid: syntax
+        // ([^#)\]\s]+)           - The reference target (no #, spaces, closing parens, or brackets)
+        // (?:#([^)\]\s]+))?      - Optional fragment identifier after #
+        // [\])]                  - Closing bracket or paren
+
+        $pattern = '/\[(?:([^\]]+)\]\()?@(ref|navid):([^#)\]\s]+)(?:#([^)\]\s]+))?[\])]/';
 
         return preg_replace_callback($pattern, function ($matches) use ($registry, $navPathMap, $navIdMap, $sourceOwner) {
             $customText = $matches[1] !== '' ? $matches[1] : null; // Custom link text if provided
             $refType = $matches[2]; // 'ref' or 'navid'
             $refTarget = $matches[3]; // The actual reference target
+            $fragment = $matches[4] ?? null; // Optional fragment identifier
 
             // Resolve the reference based on type
             $resolvedLink = $this->resolveReference($refType, $refTarget, $registry, $navPathMap, $navIdMap, $sourceOwner);
@@ -723,6 +789,7 @@ class MkDocsGenerator
             if ($resolvedLink === null) {
                 // Reference couldn't be resolved - throw build error with helpful context
                 $sourceInfo = $sourceOwner ? " in {$sourceOwner}" : '';
+                $fragmentInfo = $fragment ? "#{$fragment}" : '';
                 $suggestion = '';
 
                 if ($refType === 'ref') {
@@ -737,11 +804,16 @@ class MkDocsGenerator
                                   "3. Or use a code block instead: `{$refTarget}`";
                 }
 
-                throw new \RuntimeException("Broken reference: @{$refType}:{$refTarget}{$sourceInfo}{$suggestion}");
+                throw new \RuntimeException("Broken reference: @{$refType}:{$refTarget}{$fragmentInfo}{$sourceInfo}{$suggestion}");
             }
 
             $linkText = $customText ?: $resolvedLink['title'];
             $linkUrl = $resolvedLink['url'];
+
+            // Append fragment identifier if provided
+            if ($fragment) {
+                $linkUrl .= '#' . $fragment;
+            }
 
             return "[{$linkText}]({$linkUrl})";
         }, $content);
