@@ -305,3 +305,181 @@ it('processes multiple cross-references in same content', function () {
 
     expect(true)->toBeTrue();
 });
+
+it('processes @navid references in Mermaid charts', function () {
+    $documentationNodes = [
+        [
+            'owner' => 'App\Services\DataService',
+            'navPath' => 'Services / Data',
+            'navId' => 'data-service',
+            'navParent' => null,
+            'description' => 'Data service for processing.',
+            'links' => [],
+            'uses' => [],
+        ],
+        [
+            'owner' => 'App\Services\CacheService',
+            'navPath' => 'Services / Cache',
+            'navId' => 'cache-service',
+            'navParent' => null,
+            'description' => 'Cache service for optimization.',
+            'links' => [],
+            'uses' => [],
+        ],
+        [
+            'owner' => 'App\Services\FlowService',
+            'navPath' => 'Services / Flow',
+            'navId' => null,
+            'navParent' => null,
+            'description' => <<<'MD'
+## Service Flow
+
+```mermaid
+graph LR
+    A[Start] --> B[Process Data]
+    B --> C[Cache Result]
+    click B "@navid:data-service" "View Data Service"
+    click C '@navid:cache-service' 'View Cache Service'
+```
+
+The diagram shows the service flow.
+MD,
+            'links' => [],
+            'uses' => [],
+        ],
+    ];
+
+    $this->filesystem->shouldReceive('deleteDirectory')->once();
+    $this->filesystem->shouldReceive('makeDirectory')->atLeast()->once();
+
+    // Capture the FlowService content to verify Mermaid references were processed
+    $flowContent = null;
+    $this->filesystem->shouldReceive('put')
+        ->with(Mockery::pattern('/flow\.md$/'), Mockery::on(function ($content) use (&$flowContent) {
+            $flowContent = $content;
+
+            return true;
+        }));
+
+    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+
+    $this->generator->generate($documentationNodes, '/docs');
+
+    // Verify Mermaid references were processed to relative URLs
+    expect($flowContent)->toContain('```mermaid');
+    expect($flowContent)->toContain('click B "../data/" "View Data Service"'); // Processed with tooltip
+    expect($flowContent)->toContain('click C "../cache/" "View Cache Service"'); // Processed with tooltip (quotes normalized to double)
+    expect($flowContent)->not->toContain('@navid:'); // References should be resolved
+});
+
+it('supports fragment identifiers in @navid and @ref links', function () {
+    $documentationNodes = [
+        [
+            'owner' => 'App\Services\AuthService',
+            'navPath' => 'Services / Auth',
+            'navId' => 'auth-service',
+            'navParent' => null,
+            'description' => <<<'MD'
+# Authentication Service
+
+## Overview
+General authentication overview.
+
+## Login Process
+Detailed login process.
+
+## Security Features
+Security implementation details.
+MD,
+            'links' => [],
+            'uses' => [],
+        ],
+        [
+            'owner' => 'App\Controllers\UserController',
+            'navPath' => 'Controllers / User',
+            'navId' => null,
+            'navParent' => null,
+            'description' => <<<'MD'
+## User Controller
+
+See the [@navid:auth-service#login-process] for authentication details.
+
+Also check [@ref:App\Services\AuthService#security-features] for security info.
+
+With custom text: [login details](@navid:auth-service#login-process).
+
+## Mermaid with Fragments
+
+```mermaid
+graph TD
+    A[User Login] --> B[Auth Check]
+    click A "@navid:auth-service#login-process" "View Login Process"
+    click B "@ref:App\Services\AuthService#security-features"
+```
+MD,
+            'links' => [],
+            'uses' => [],
+        ],
+    ];
+
+    $this->filesystem->shouldReceive('deleteDirectory')->once();
+    $this->filesystem->shouldReceive('makeDirectory')->atLeast()->once();
+
+    // Capture the UserController content to verify fragment links
+    $userContent = null;
+    $this->filesystem->shouldReceive('put')
+        ->with(Mockery::pattern('/user\.md$/'), Mockery::on(function ($content) use (&$userContent) {
+            $userContent = $content;
+
+            return true;
+        }));
+
+    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+
+    $this->generator->generate($documentationNodes, '/docs');
+
+    // Verify inline fragment links
+    expect($userContent)->toContain('#login-process)'); // @navid with fragment
+    expect($userContent)->toContain('#security-features)'); // @ref with fragment
+    expect($userContent)->toContain('[login details]('); // Custom text preserved
+
+    // Verify Mermaid fragment links
+    expect($userContent)->toContain('click A '); // Mermaid element preserved
+    expect($userContent)->toContain('#login-process"'); // Fragment in Mermaid link
+    expect($userContent)->toContain('click B '); // Mermaid element preserved
+    expect($userContent)->toContain('#security-features"'); // Fragment in Mermaid link
+
+    // Ensure references are resolved
+    expect($userContent)->not->toContain('@navid:');
+    expect($userContent)->not->toContain('@ref:');
+});
+
+it('throws exception for broken Mermaid references', function () {
+    $documentationNodes = [
+        [
+            'owner' => 'App\Services\DiagramService',
+            'navPath' => 'Services / Diagram',
+            'navId' => null,
+            'navParent' => null,
+            'description' => <<<'MD'
+## Service Diagram
+
+```mermaid
+graph LR
+    A[Start] --> B[End]
+    click A "@navid:nonexistent-service" "This should fail"
+```
+MD,
+            'links' => [],
+            'uses' => [],
+        ],
+    ];
+
+    $this->filesystem->shouldReceive('deleteDirectory')->atMost()->once();
+    $this->filesystem->shouldReceive('makeDirectory')->atMost()->once();
+    $this->filesystem->shouldReceive('put')->atMost()->once();
+
+    // Should throw RuntimeException for broken Mermaid reference
+    expect(fn () => $this->generator->generate($documentationNodes, '/docs'))
+        ->toThrow(RuntimeException::class, 'Broken Mermaid reference: @navid:nonexistent-service');
+});
