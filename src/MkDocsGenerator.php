@@ -1318,7 +1318,7 @@ class MkDocsGenerator
 
     private function slug(string $seg): string
     {
-        return Str::slug($seg, dictionary: ['::' => '-']);
+        return str_replace(['::', ' '], ['-', '-'], $seg);
     }
 
     private function makeRelativePath(string $path, string $base): string
