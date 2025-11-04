@@ -154,7 +154,7 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
                     str_starts_with($cleanAnnotation, '@navid ') ||
                     str_starts_with($cleanAnnotation, '@navparent ') ||
                     str_starts_with($cleanAnnotation, '@uses ') ||
-                    str_starts_with($cleanAnnotation, '@uses\\')||
+                    str_starts_with($cleanAnnotation, '@uses\\') ||
                     str_starts_with($cleanAnnotation, '@link ') ||
                     str_starts_with($cleanAnnotation, '@links ')) {
                     continue; // Skip but don't break
