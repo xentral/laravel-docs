@@ -10,6 +10,7 @@ use Symfony\Component\Yaml\Yaml;
  * Generates MkDocs documentation from extracted functional documentation.
  *
  * @nav Main Section / Generator / MkDocs Generator
+ *
  * @uses \Illuminate\Filesystem\Filesystem
  */
 class MkDocsGenerator
@@ -1022,7 +1023,7 @@ class MkDocsGenerator
             }
         }
 
-        if (!$currentNode || empty($currentNode['uses'])) {
+        if (! $currentNode || empty($currentNode['uses'])) {
             return [];
         }
 
@@ -1038,7 +1039,7 @@ class MkDocsGenerator
 
             // Recursively collect dependencies of this dependency
             $nestedDeps = $this->collectRecursiveDependencies($usedKey, $allNodes, $visited, $depth + 1, $maxDepth);
-            if (!empty($nestedDeps)) {
+            if (! empty($nestedDeps)) {
                 $dependencies[count($dependencies) - 1]['uses'] = $nestedDeps;
             }
         }
@@ -1121,7 +1122,7 @@ class MkDocsGenerator
             }
 
             // Recursively add nested dependencies
-            if (!empty($dep['uses'])) {
+            if (! empty($dep['uses'])) {
                 $this->generateDependencyList($content, $dep['uses'], $registry, $navPathMap, $sourcePath, $depth + 1);
             }
         }
@@ -1148,7 +1149,7 @@ class MkDocsGenerator
             }
 
             // Recursively add nested dependencies
-            if (!empty($dep['uses'])) {
+            if (! empty($dep['uses'])) {
                 $this->addMermaidDependencies($mermaidContent, $mermaidLinks, $usedId, $dep['uses'], $registry, $navPathMap, $sourcePath);
             }
         }
