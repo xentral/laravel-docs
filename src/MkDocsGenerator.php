@@ -3,7 +3,6 @@
 namespace Xentral\LaravelDocs;
 
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Yaml;
 
 class MkDocsGenerator

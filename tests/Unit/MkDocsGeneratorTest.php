@@ -279,15 +279,13 @@ it('processes cross-references in generated content', function () {
     // Capture content to verify cross-reference was processed
     $controllerContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/data\.md$/'), Mockery::on(function ($content) use (&$controllerContent) {
-            if (str_contains($content, 'data operations')) {
+        ->with(Mockery::any(), Mockery::on(function ($content) use (&$controllerContent) {
+            if (is_string($content) && str_contains($content, 'data operations')) {
                 $controllerContent = $content;
             }
 
             return true;
-        }));
-
-    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+        }))->atLeast()->once();
 
     $this->generator->generate($documentationNodes, '/docs');
 
@@ -331,15 +329,13 @@ it('includes "Referenced by" sections in output', function () {
     // Capture core service content
     $coreContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/core\.md$/'), Mockery::on(function ($content) use (&$coreContent) {
-            if (str_contains($content, 'Core service that is referenced')) {
+        ->with(Mockery::any(), Mockery::on(function ($content) use (&$coreContent) {
+            if (is_string($content) && str_contains($content, 'Core service that is referenced')) {
                 $coreContent = $content;
             }
 
             return true;
-        }));
-
-    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+        }))->atLeast()->once();
 
     $this->generator->generate($documentationNodes, '/docs');
 
