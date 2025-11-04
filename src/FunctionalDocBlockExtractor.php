@@ -147,9 +147,24 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
             if ($inFunctionalBlock) {
                 // Check if this line contains an annotation (even if it's in a bullet list)
                 $trimmedTest = ltrim(trim((string) $testLine), '* -');
-                if (str_starts_with(trim($trimmedTest), '@')) {
+                $cleanAnnotation = trim($trimmedTest);
+
+                // Skip known metadata annotations (they're extracted in Pass 1)
+                if (str_starts_with($cleanAnnotation, '@nav ') ||
+                    str_starts_with($cleanAnnotation, '@navid ') ||
+                    str_starts_with($cleanAnnotation, '@navparent ') ||
+                    str_starts_with($cleanAnnotation, '@uses ') ||
+                    str_starts_with($cleanAnnotation, '@uses\\')||
+                    str_starts_with($cleanAnnotation, '@link ') ||
+                    str_starts_with($cleanAnnotation, '@links ')) {
+                    continue; // Skip but don't break
+                }
+
+                // Break on any other annotation (marks end of functional block)
+                if (str_starts_with($cleanAnnotation, '@')) {
                     break;
                 }
+
                 $rawFunctionalLines[] = $testLine;
             }
         }

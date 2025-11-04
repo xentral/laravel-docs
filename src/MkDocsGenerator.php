@@ -8,6 +8,7 @@ use Symfony\Component\Yaml\Yaml;
 /**
  * @functional
  * Generates MkDocs documentation from extracted functional documentation.
+ * Generates MkDocs documentation from extracted functional documentation.
  *
  * @nav Main Section / Generator / MkDocs Generator
  *
@@ -26,14 +27,14 @@ class MkDocsGenerator
 
     public function generate(array $documentationNodes, string $docsBaseDir): void
     {
-        $docsOutputDir = $docsBaseDir.'/generated';
+        $docsOutputDir = $docsBaseDir . '/generated';
 
         // Parse static content files from configured paths
         $staticContentNodes = $this->parseStaticContentFiles($docsBaseDir);
 
         // Check for error-level validation warnings and fail early
         $errors = array_filter($this->validationWarnings, fn ($w) => $w['severity'] === 'error');
-        if (! empty($errors)) {
+        if (!empty($errors)) {
             echo $this->validator->formatWarnings($this->validationWarnings);
             throw new \RuntimeException(
                 sprintf(
@@ -83,7 +84,7 @@ class MkDocsGenerator
 
         // Create welcome page
         $welcomeContent = "# Welcome\n\nThis is the automatically generated functional documentation for the project. \n\nUse the navigation on the left to explore the documented processes.";
-        $this->filesystem->put($docsOutputDir.'/index.md', $welcomeContent);
+        $this->filesystem->put($docsOutputDir . '/index.md', $welcomeContent);
 
         // Generate files
         $this->generateFiles($docTree, $docsOutputDir);
@@ -95,10 +96,10 @@ class MkDocsGenerator
         // Generate config
         $config = config('docs.config', []);
         $config['nav'] = $navStructure;
-        $this->dumpAsYaml($config, $docsBaseDir.'/mkdocs.yml');
+        $this->dumpAsYaml($config, $docsBaseDir . '/mkdocs.yml');
 
         // Display validation warnings if any were found
-        if (! empty($this->validationWarnings)) {
+        if (!empty($this->validationWarnings)) {
             echo $this->validator->formatWarnings($this->validationWarnings);
         }
     }
@@ -110,9 +111,9 @@ class MkDocsGenerator
 
         foreach ($staticContentConfig as $contentType => $config) {
             $contentPath = $config['path'] ?? null;
-            $navPrefix = $config['nav_prefix'] ?? ucfirst((string) $contentType);
+            $navPrefix = $config['nav_prefix'] ?? ucfirst((string)$contentType);
 
-            if (! $contentPath || ! $this->filesystem->exists($contentPath)) {
+            if (!$contentPath || !$this->filesystem->exists($contentPath)) {
                 continue;
             }
 
@@ -180,7 +181,7 @@ class MkDocsGenerator
             }
 
             // 4. Check nav path last segment match (fallback)
-            $navPathSegments = array_map(trim(...), explode('/', (string) $node['navPath']));
+            $navPathSegments = array_map(trim(...), explode('/', (string)$node['navPath']));
             $lastSegment = array_pop($navPathSegments);
             if (strtolower($lastSegment) === strtolower($parentRef)) {
                 return $node;
@@ -193,16 +194,17 @@ class MkDocsGenerator
     private function parseStaticContentFile(string $filePath, string $contentBasePath, string $contentType, string $navPrefix): array
     {
         $content = $this->filesystem->get($filePath);
-        $relativePath = str_replace($contentBasePath.'/', '', $filePath);
+        $relativePath = str_replace($contentBasePath . '/', '', $filePath);
 
         // Validate markdown content
         $warnings = $this->validator->validate($content, $filePath);
-        if (! empty($warnings)) {
+        if (!empty($warnings)) {
             $this->validationWarnings = array_merge($this->validationWarnings, $warnings);
         }
 
         // Extract @nav lines and clean content
-        [$navPath, $cleanedContent, $navId, $navParent, $uses, $links] = $this->extractNavFromContent($content, $relativePath, $navPrefix);
+        [$navPath, $cleanedContent, $navId, $navParent, $uses,
+            $links] = $this->extractNavFromContent($content, $relativePath, $navPrefix);
 
         // Fix PHP code blocks for proper syntax highlighting
         $cleanedContent = $this->fixPhpCodeBlocks($cleanedContent);
@@ -212,13 +214,13 @@ class MkDocsGenerator
         $displayTitle = $this->extractTitleFromContent($lines);
 
         // If no markdown title found, fall back to navigation path (last segment)
-        if (! $displayTitle) {
-            $pathSegments = array_map(trim(...), explode('/', (string) $navPath));
+        if (!$displayTitle) {
+            $pathSegments = array_map(trim(...), explode('/', (string)$navPath));
             $displayTitle = array_pop($pathSegments);
         }
 
         return [
-            'owner' => $contentType.':'.$relativePath,
+            'owner' => $contentType . ':' . $relativePath,
             'navPath' => $navPath,
             'displayTitle' => $displayTitle, // Store display title directly
             'description' => $cleanedContent,
@@ -250,8 +252,8 @@ class MkDocsGenerator
             $trimmedLine = trim($line);
 
             // Handle YAML frontmatter (only if --- is at the beginning of the file)
-            if ($trimmedLine === '---' && ! $frontMatterEnded) {
-                if (! $inFrontMatter) {
+            if ($trimmedLine === '---' && !$frontMatterEnded) {
+                if (!$inFrontMatter) {
                     // Only treat as frontmatter if this is the first line or only whitespace before
                     $isFirstContent = true;
                     for ($i = 0; $i < $lineIndex; $i++) {
@@ -281,7 +283,7 @@ class MkDocsGenerator
             }
 
             // Check for @navid lines (only at beginning of trimmed line, only first occurrence)
-            if (! $navIdFound && str_starts_with($trimmedLine, '@navid ')) {
+            if (!$navIdFound && str_starts_with($trimmedLine, '@navid ')) {
                 $navId = trim(substr($trimmedLine, strlen('@navid')));
                 $navIdFound = true;
 
@@ -289,7 +291,7 @@ class MkDocsGenerator
             }
 
             // Check for @navparent lines (only at beginning of trimmed line, only first occurrence)
-            if (! $navParentFound && str_starts_with($trimmedLine, '@navparent ')) {
+            if (!$navParentFound && str_starts_with($trimmedLine, '@navparent ')) {
                 $navParent = trim(substr($trimmedLine, strlen('@navparent')));
                 $navParentFound = true;
 
@@ -297,7 +299,7 @@ class MkDocsGenerator
             }
 
             // Check for @nav lines (only at beginning of trimmed line, only first occurrence)
-            if (! $navFound && str_starts_with($trimmedLine, '@nav ')) {
+            if (!$navFound && str_starts_with($trimmedLine, '@nav ')) {
                 $navPath = trim(substr($trimmedLine, strlen('@nav')));
                 $navFound = true;
 
@@ -349,7 +351,7 @@ class MkDocsGenerator
                 $pathParts[$i] = ucwords(str_replace('_', ' ', $pathParts[$i]));
             }
 
-            $navPath = $navPrefix.' / '.implode(' / ', $pathParts);
+            $navPath = $navPrefix . ' / ' . implode(' / ', $pathParts);
         }
 
         return [$navPath, implode("\n", $cleanedLines), $navId, $navParent, $uses, $links];
@@ -358,7 +360,7 @@ class MkDocsGenerator
     private function extractTitleFromContent(array $lines): ?string
     {
         foreach ($lines as $line) {
-            $trimmedLine = trim((string) $line);
+            $trimmedLine = trim((string)$line);
 
             // Skip empty lines
             if (empty($trimmedLine)) {
@@ -384,12 +386,12 @@ class MkDocsGenerator
         foreach ($documentationNodes as $node) {
             // Build path based on where files are actually placed in the generated directory
             // Both static and PHPDoc content use the navPath structure for file placement
-            $pathSegments = array_map(trim(...), explode('/', (string) $node['navPath']));
+            $pathSegments = array_map(trim(...), explode('/', (string)$node['navPath']));
             $pageTitle = array_pop($pathSegments);
 
             if (isset($node['type']) && $node['type'] === 'static_content') {
                 // For static content, preserve original filename from owner
-                $ownerParts = explode(':', (string) $node['owner'], 2);
+                $ownerParts = explode(':', (string)$node['owner'], 2);
                 if (count($ownerParts) === 2) {
                     $fileName = basename($ownerParts[1]); // e.g., "SHADOW_MODE_SPECIFICATION.md"
                     $urlParts = $pathSegments; // Use navPath segments as-is (no slugging for static content dirs)
@@ -400,7 +402,7 @@ class MkDocsGenerator
                 // For PHPDoc content, preserve directory names (with spaces) but slug the filename
                 // This matches how files are actually generated in setInNestedArray()
                 $urlParts = $pathSegments; // Keep directory names as-is
-                $urlParts[] = $this->slug($pageTitle).'.md'; // Only slug the filename
+                $urlParts[] = $this->slug($pageTitle) . '.md'; // Only slug the filename
                 $registry[$node['owner']] = implode('/', $urlParts);
             }
         }
@@ -434,7 +436,7 @@ class MkDocsGenerator
     {
         $navIdMap = [];
         foreach ($documentationNodes as $node) {
-            if (! empty($node['navId'])) {
+            if (!empty($node['navId'])) {
                 $navIdMap[$node['navId']] = $node['owner'];
             }
         }
@@ -447,8 +449,8 @@ class MkDocsGenerator
         $usedBy = [];
         foreach ($documentationNodes as $node) {
             foreach ($node['uses'] as $used) {
-                $lookupKey = ltrim(trim((string) $used), '\\');
-                if (! isset($usedBy[$lookupKey])) {
+                $lookupKey = ltrim(trim((string)$used), '\\');
+                if (!isset($usedBy[$lookupKey])) {
                     $usedBy[$lookupKey] = [];
                 }
                 $usedBy[$lookupKey][] = $node['owner'];
@@ -490,10 +492,10 @@ class MkDocsGenerator
 
                 // Track the reference
                 if ($targetOwner) {
-                    if (! isset($referencedBy[$targetOwner])) {
+                    if (!isset($referencedBy[$targetOwner])) {
                         $referencedBy[$targetOwner] = [];
                     }
-                    if (! in_array($sourceOwner, $referencedBy[$targetOwner])) {
+                    if (!in_array($sourceOwner, $referencedBy[$targetOwner])) {
                         $referencedBy[$targetOwner][] = $sourceOwner;
                     }
                 }
@@ -509,24 +511,25 @@ class MkDocsGenerator
         $pathRegistry = [];
 
         foreach ($documentationNodes as $node) {
-            $pathSegments = array_map(trim(...), explode('/', (string) $node['navPath']));
+            $pathSegments = array_map(trim(...), explode('/', (string)$node['navPath']));
             $originalPageTitle = array_pop($pathSegments);
             $pageTitle = $originalPageTitle;
 
             // For static content, preserve everything exactly as-is
             if (isset($node['type']) && $node['type'] === 'static_content') {
                 // Extract original filename from the owner (format: "contentType:relative/path.md")
-                $ownerParts = explode(':', (string) $node['owner'], 2);
+                $ownerParts = explode(':', (string)$node['owner'], 2);
                 if (count($ownerParts) === 2) {
                     $originalPath = $ownerParts[1];
                     $pageFileName = basename($originalPath); // Keep original filename exactly
                 } else {
-                    $pageFileName = $originalPageTitle.'.md'; // Fallback
+                    $pageFileName = $originalPageTitle . '.md'; // Fallback
                 }
             } else {
                 // For PHPDoc content, use existing conflict resolution with slugging
                 $baseFileName = $this->slug($pageTitle);
-                $pathForConflictCheck = implode('/', array_map([$this, 'slug'], $pathSegments)).'/'.$baseFileName.'.md';
+                $pathForConflictCheck = implode('/', array_map([$this,
+                        'slug'], $pathSegments)) . '/' . $baseFileName . '.md';
 
                 // Determine the final page filename and title based on conflicts
                 [$pageFileName, $pageTitle] = $this->resolveFileNameConflict(
@@ -554,12 +557,13 @@ class MkDocsGenerator
         string $baseFileName,
         string $pageTitle,
         array $node
-    ): array {
+    ): array
+    {
         if (isset($pathRegistry[$pathForConflictCheck])) {
             $pathRegistry[$pathForConflictCheck]['count']++;
             $count = $pathRegistry[$pathForConflictCheck]['count'];
-            $updatedPageTitle = $pageTitle." ({$count})"; // Update display title
-            $updatedFileName = $baseFileName."-({$count}).md"; // Update file name
+            $updatedPageTitle = $pageTitle . " ({$count})"; // Update display title
+            $updatedFileName = $baseFileName . "-({$count}).md"; // Update file name
 
             $originalNodeInfo = $pathRegistry[$pathForConflictCheck]['nodes'][0];
             // Handle conflict information - would need a logger here
@@ -573,7 +577,7 @@ class MkDocsGenerator
                 'nodes' => [$node],
             ];
 
-            return [$baseFileName.'.md', $pageTitle];
+            return [$baseFileName . '.md', $pageTitle];
         }
     }
 
@@ -600,7 +604,7 @@ class MkDocsGenerator
             // We've reached the target level, add the content here
             if (isset($array[$originalPageTitle]) && is_array($array[$originalPageTitle])) {
                 // This is a directory, so the original becomes the index
-                if ($pageFileName === $this->slug($originalPageTitle).'.md') {
+                if ($pageFileName === $this->slug($originalPageTitle) . '.md') {
                     $array[$originalPageTitle]['index.md'] = $markdownContent;
                 } else {
                     $array[$pageFileName] = $markdownContent;
@@ -613,10 +617,10 @@ class MkDocsGenerator
         }
 
         $segment = array_shift($path);
-        $fileKey = $this->slug($segment).'.md';
+        $fileKey = $this->slug($segment) . '.md';
 
         // Initialize segment if it doesn't exist
-        if (! isset($array[$segment])) {
+        if (!isset($array[$segment])) {
             $array[$segment] = [];
         } elseif (isset($array[$fileKey]) && is_string($array[$fileKey])) {
             // If we have a file with the same name as a directory we need to create
@@ -646,7 +650,7 @@ class MkDocsGenerator
         $markdownContent .= $processedDescription;
 
         // Add "Building Blocks Used" section
-        if (! empty($node['uses'])) {
+        if (!empty($node['uses'])) {
             $markdownContent .= $this->generateUsedComponentsSection($node, $registry, $navPathMap, $allNodes);
         }
 
@@ -662,7 +666,7 @@ class MkDocsGenerator
         }
 
         // Add "Further reading" section
-        if (! empty($node['links'])) {
+        if (!empty($node['links'])) {
             $markdownContent .= $this->generateLinksSection($node['links']);
         }
 
@@ -676,15 +680,15 @@ class MkDocsGenerator
         $content = $node['description'];
 
         // If the content doesn't start with a title, add one
-        if (! preg_match('/^#\s+/', trim((string) $content))) {
-            $content = "# {$pageTitle}\n\n".$content;
+        if (!preg_match('/^#\s+/', trim((string)$content))) {
+            $content = "# {$pageTitle}\n\n" . $content;
         }
 
         // Process inline references in the content
         $content = $this->processInlineReferences($content, $registry, $navPathMap, $navIdMap, $node['owner']);
 
         // Add "Building Blocks Used" section if uses are defined
-        if (! empty($node['uses'])) {
+        if (!empty($node['uses'])) {
             $content .= $this->generateUsedComponentsSection($node, $registry, $navPathMap, $allNodes);
         }
 
@@ -700,7 +704,7 @@ class MkDocsGenerator
         }
 
         // Add "Further reading" section if links are defined
-        if (! empty($node['links'])) {
+        if (!empty($node['links'])) {
             $content .= $this->generateLinksSection($node['links']);
         }
 
@@ -747,7 +751,7 @@ class MkDocsGenerator
 
                         // Append fragment identifier if provided
                         if ($fragment) {
-                            $linkUrl .= '#'.$fragment;
+                            $linkUrl .= '#' . $fragment;
                         }
 
                         // Return the processed click event with resolved URL
@@ -800,15 +804,15 @@ class MkDocsGenerator
                 $suggestion = '';
 
                 if ($refType === 'ref') {
-                    $suggestion = "\n\nThe class '{$refTarget}' is not documented. To fix this:\n".
-                                  "1. Add @docs annotation to the class PHPDoc comment\n".
-                                  "2. Re-run docs generation\n".
-                                  '3. Or use a code block instead: `'.basename(str_replace('\\', '/', $refTarget)).'`';
+                    $suggestion = "\n\nThe class '{$refTarget}' is not documented. To fix this:\n" .
+                        "1. Add @docs annotation to the class PHPDoc comment\n" .
+                        "2. Re-run docs generation\n" .
+                        '3. Or use a code block instead: `' . basename(str_replace('\\', '/', $refTarget)) . '`';
                 } elseif ($refType === 'navid') {
-                    $suggestion = "\n\nThe navigation ID '{$refTarget}' doesn't exist. Check:\n".
-                                  "1. @navid annotation exists in target document\n".
-                                  "2. No typos in the navigation ID\n".
-                                  "3. Or use a code block instead: `{$refTarget}`";
+                    $suggestion = "\n\nThe navigation ID '{$refTarget}' doesn't exist. Check:\n" .
+                        "1. @navid annotation exists in target document\n" .
+                        "2. No typos in the navigation ID\n" .
+                        "3. Or use a code block instead: `{$refTarget}`";
                 }
 
                 throw new \RuntimeException("Broken reference: @{$refType}:{$refTarget}{$fragmentInfo}{$sourceInfo}{$suggestion}");
@@ -819,7 +823,7 @@ class MkDocsGenerator
 
             // Append fragment identifier if provided
             if ($fragment) {
-                $linkUrl .= '#'.$fragment;
+                $linkUrl .= '#' . $fragment;
             }
 
             return "[{$linkText}]({$linkUrl})";
@@ -845,7 +849,7 @@ class MkDocsGenerator
         $cleanTarget = ltrim($ownerTarget, '\\');
 
         // Check if this owner exists in our registry
-        if (! isset($registry[$cleanTarget])) {
+        if (!isset($registry[$cleanTarget])) {
             return null;
         }
 
@@ -868,7 +872,7 @@ class MkDocsGenerator
     private function resolveRefByNavId(string $navIdTarget, array $navIdMap, array $registry, array $navPathMap, string $sourceOwner): ?array
     {
         // Check if this navId exists in our map
-        if (! isset($navIdMap[$navIdTarget])) {
+        if (!isset($navIdMap[$navIdTarget])) {
             return null;
         }
 
@@ -876,7 +880,7 @@ class MkDocsGenerator
         $targetOwner = $navIdMap[$navIdTarget];
 
         // Check if this owner exists in our registry
-        if (! isset($registry[$targetOwner])) {
+        if (!isset($registry[$targetOwner])) {
             return null;
         }
 
@@ -972,7 +976,7 @@ class MkDocsGenerator
         });
 
         foreach ($uniqueReferences as $referencingOwner) {
-            $referencingOwnerKey = ltrim(trim((string) $referencingOwner), '\\');
+            $referencingOwnerKey = ltrim(trim((string)$referencingOwner), '\\');
             $referencingNavPath = $navPathMap[$referencingOwnerKey] ?? $referencingOwnerKey;
 
             if (isset($registry[$referencingOwnerKey])) {
@@ -992,11 +996,11 @@ class MkDocsGenerator
     /**
      * Recursively collect all dependencies (transitive closure)
      *
-     * @param  string  $owner  The owner to collect dependencies for
-     * @param  array  $allNodes  All documentation nodes
-     * @param  array  $visited  Track visited nodes to detect cycles
-     * @param  int  $depth  Current depth level
-     * @param  int  $maxDepth  Maximum recursion depth
+     * @param string $owner The owner to collect dependencies for
+     * @param array $allNodes All documentation nodes
+     * @param array $visited Track visited nodes to detect cycles
+     * @param int $depth Current depth level
+     * @param int $maxDepth Maximum recursion depth
      * @return array Array of dependencies with structure: ['owner' => string, 'depth' => int, 'uses' => array]
      */
     private function collectRecursiveDependencies(string $owner, array $allNodes, array &$visited = [], int $depth = 0, int $maxDepth = 5): array
@@ -1029,7 +1033,7 @@ class MkDocsGenerator
 
         // Collect direct dependencies
         foreach ($currentNode['uses'] as $used) {
-            $usedKey = ltrim(trim((string) $used), '\\');
+            $usedKey = ltrim(trim((string)$used), '\\');
 
             $dependencies[] = [
                 'owner' => $usedKey,
@@ -1066,7 +1070,7 @@ class MkDocsGenerator
 
         // Collect direct dependencies with recursive expansion
         foreach ($node['uses'] as $used) {
-            $usedRaw = trim((string) $used);
+            $usedRaw = trim((string)$used);
             $lookupKey = ltrim($usedRaw, '\\');
 
             // Collect recursive dependencies for this component
@@ -1092,8 +1096,8 @@ class MkDocsGenerator
         $content .= "```mermaid\n";
         $content .= $mermaidContent;
         $content .= "    style {$ownerId} fill:#ffe7cd,stroke:#b38000,stroke-width:4px\n";
-        if (! empty($mermaidLinks)) {
-            $content .= '    '.implode("\n    ", $mermaidLinks)."\n";
+        if (!empty($mermaidLinks)) {
+            $content .= '    ' . implode("\n    ", $mermaidLinks) . "\n";
         }
         $content .= "```\n";
 
@@ -1169,7 +1173,7 @@ class MkDocsGenerator
         $sourcePath = $registry[$ownerKey] ?? '';
 
         foreach ($usedBy[$ownerKey] as $user) {
-            $userKey = ltrim(trim((string) $user), '\\');
+            $userKey = ltrim(trim((string)$user), '\\');
             $userId = $this->slug($userKey);
             $userNavPath = $navPathMap[$userKey] ?? $userKey;
 
@@ -1191,8 +1195,8 @@ class MkDocsGenerator
         $content .= "```mermaid\n";
         $content .= $mermaidContent;
         $content .= "    style {$ownerId} fill:#ffe7cd,stroke:#b38000,stroke-width:4px\n";
-        if (! empty($mermaidLinks)) {
-            $content .= '    '.implode("\n    ", $mermaidLinks)."\n";
+        if (!empty($mermaidLinks)) {
+            $content .= '    ' . implode("\n    ", $mermaidLinks) . "\n";
         }
         $content .= "```\n";
 
@@ -1203,7 +1207,7 @@ class MkDocsGenerator
     {
         $content = "\n\n## Further reading\n\n";
         foreach ($links as $link) {
-            $trimmedLink = trim((string) $link);
+            $trimmedLink = trim((string)$link);
             if (preg_match('/^\[.*\]\s*\(.*\)$/', $trimmedLink)) {
                 $content .= "* {$trimmedLink}\n";
             } elseif (preg_match('/^(\S+)\s+(.*)$/', $trimmedLink, $matches)) {
@@ -1221,12 +1225,12 @@ class MkDocsGenerator
         foreach ($tree as $key => $value) {
             if (is_array($value)) {
                 // For directories, preserve original naming for static content
-                $newPath = $currentPath.'/'.$key;
+                $newPath = $currentPath . '/' . $key;
                 $this->filesystem->makeDirectory($newPath);
                 $this->generateFiles($value, $newPath);
             } else {
                 // key is already the correct filename.md
-                $this->filesystem->put($currentPath.'/'.$key, $value);
+                $this->filesystem->put($currentPath . '/' . $key, $value);
             }
         }
     }
@@ -1241,14 +1245,14 @@ class MkDocsGenerator
                 continue;
             }
 
-            $filePath = $pathPrefix.$key;
+            $filePath = $pathPrefix . $key;
 
             if (is_array($value)) {
                 // For directories, use cleaned directory names
                 $dirName = ucwords(str_replace(['_', '-'], ' ', $key));
                 $navItems[] = [
                     'title' => $dirName,
-                    'content' => $this->generateNavStructure($value, $pathPrefix.$key.'/', $navPathMap, $allNodes, $reverseRegistry),
+                    'content' => $this->generateNavStructure($value, $pathPrefix . $key . '/', $navPathMap, $allNodes, $reverseRegistry),
                     'type' => $this->getNavItemType($dirName),
                     'sortKey' => strtolower($dirName),
                     'isChild' => false,
@@ -1263,7 +1267,8 @@ class MkDocsGenerator
                     $title = $displayTitle;
                 } else {
                     // Fallback to filename with underscores replaced
-                    $title = ucwords(str_replace(['_', '-', '-(', ')'], [' ', ' ', ' (', ')'], pathinfo((string) $key, PATHINFO_FILENAME)));
+                    $title = ucwords(str_replace(['_', '-', '-(', ')'], [' ', ' ', ' (',
+                        ')'], pathinfo((string)$key, PATHINFO_FILENAME)));
                 }
 
                 // Check if this is a child page and add Unicode prefix if so
@@ -1272,14 +1277,14 @@ class MkDocsGenerator
 
                 if ($isChild) {
                     // Add Unicode downward arrow with tip rightwards (↘) as prefix
-                    $title = '↳ '.$title;
+                    $title = '↳ ' . $title;
                 }
 
                 $navItems[] = [
                     'title' => $title,
                     'content' => $filePath,
                     'type' => $this->getNavItemType($title),
-                    'sortKey' => strtolower($displayTitle ?? pathinfo((string) $key, PATHINFO_FILENAME)),
+                    'sortKey' => strtolower($displayTitle ?? pathinfo((string)$key, PATHINFO_FILENAME)),
                     'isChild' => $isChild,
                     'parentKey' => $parentKey,
                 ];
@@ -1297,10 +1302,10 @@ class MkDocsGenerator
 
             // Within same type, handle parent-child relationships
             // If one is child and the other is parent, parent comes first
-            if ($a['isChild'] && ! $b['isChild'] && $a['parentKey'] === $this->findParentIdentifier($b, $allNodes, $reverseRegistry)) {
+            if ($a['isChild'] && !$b['isChild'] && $a['parentKey'] === $this->findParentIdentifier($b, $allNodes, $reverseRegistry)) {
                 return 1; // a (child) comes after b (parent)
             }
-            if ($b['isChild'] && ! $a['isChild'] && $b['parentKey'] === $this->findParentIdentifier($a, $allNodes, $reverseRegistry)) {
+            if ($b['isChild'] && !$a['isChild'] && $b['parentKey'] === $this->findParentIdentifier($a, $allNodes, $reverseRegistry)) {
                 return -1; // a (parent) comes before b (child)
             }
 
@@ -1332,7 +1337,7 @@ class MkDocsGenerator
         // Check if this is a static content section
         $staticContentConfig = config('docs.static_content', []);
         foreach ($staticContentConfig as $contentType => $config) {
-            $navPrefix = $config['nav_prefix'] ?? ucfirst((string) $contentType);
+            $navPrefix = $config['nav_prefix'] ?? ucfirst((string)$contentType);
             if (strtolower($dirName) === strtolower($navPrefix)) {
                 return 'static';
             }
@@ -1351,13 +1356,13 @@ class MkDocsGenerator
         foreach ($allNodes as $node) {
             // For static content, check if the registry path matches
             if (isset($node['type']) && $node['type'] === 'static_content') {
-                $ownerParts = explode(':', (string) $node['owner'], 2);
+                $ownerParts = explode(':', (string)$node['owner'], 2);
                 if (count($ownerParts) === 2) {
                     $contentType = $ownerParts[0]; // e.g., "specifications"
                     $relativePath = $ownerParts[1]; // e.g., "fulfillment/warehouse_refactoring/file.md"
 
                     // Build the full expected path: contentType/relativePath
-                    $expectedFullPath = $contentType.'/'.$relativePath;
+                    $expectedFullPath = $contentType . '/' . $relativePath;
 
                     // Normalize both paths for comparison
                     $normalizedFilePath = $normalize($filePath);
@@ -1386,13 +1391,13 @@ class MkDocsGenerator
         foreach ($allNodes as $node) {
             // For static content, check if the registry path matches
             if (isset($node['type']) && $node['type'] === 'static_content') {
-                $ownerParts = explode(':', (string) $node['owner'], 2);
+                $ownerParts = explode(':', (string)$node['owner'], 2);
                 if (count($ownerParts) === 2) {
                     $contentType = $ownerParts[0]; // e.g., "specifications"
                     $relativePath = $ownerParts[1]; // e.g., "fulfillment/warehouse_refactoring/file.md"
 
                     // Build the full expected path: contentType/relativePath
-                    $expectedFullPath = $contentType.'/'.$relativePath;
+                    $expectedFullPath = $contentType . '/' . $relativePath;
 
                     // Normalize both paths for comparison
                     $normalizedFilePath = $normalize($filePath);
@@ -1407,7 +1412,7 @@ class MkDocsGenerator
         }
 
         // For PHPDoc content, use the reverse registry to find the owner
-        if (! empty($reverseRegistry) && isset($reverseRegistry[$filePath])) {
+        if (!empty($reverseRegistry) && isset($reverseRegistry[$filePath])) {
             $owner = $reverseRegistry[$filePath];
 
             // Find the node with this owner
@@ -1460,8 +1465,8 @@ class MkDocsGenerator
         $path = preg_replace('/\.md$/', '', $path);
         $base = preg_replace('/\.md$/', '', $base);
 
-        $pathParts = explode('/', (string) $path);
-        $baseParts = explode('/', (string) $base);
+        $pathParts = explode('/', (string)$path);
+        $baseParts = explode('/', (string)$base);
 
         // Remove common path prefix
         while (count($pathParts) > 0 && count($baseParts) > 0 && $pathParts[0] === $baseParts[0]) {
@@ -1473,7 +1478,7 @@ class MkDocsGenerator
         $relativePrefix = str_repeat('../', count($baseParts));
 
         // Combine with remaining target path
-        return $relativePrefix.implode('/', $pathParts);
+        return $relativePrefix . implode('/', $pathParts);
     }
 
     private function toCleanUrl(string $path): string
@@ -1487,17 +1492,17 @@ class MkDocsGenerator
 
         // For slugified paths, strip .md and use directory-style URLs
         $url = preg_replace('/\.md$/', '', $path);
-        if (basename((string) $url) === 'index') {
-            $url = dirname((string) $url);
+        if (basename((string)$url) === 'index') {
+            $url = dirname((string)$url);
         }
 
-        return ($url === '.' || $url === '') ? '' : rtrim((string) $url, '/').'/';
+        return ($url === '.' || $url === '') ? '' : rtrim((string)$url, '/') . '/';
     }
 
     /**
      * Fix PHP code blocks by prepending <?php for proper syntax highlighting
      *
-     * @param  string  $content  The markdown content
+     * @param string $content The markdown content
      * @return string The fixed content
      */
     private function fixPhpCodeBlocks(string $content): string
@@ -1509,12 +1514,12 @@ class MkDocsGenerator
                 $codeContent = $matches[1];
 
                 // Check if it already starts with <?php
-                if (! preg_match('/^\s*<\?php/', $codeContent)) {
+                if (!preg_match('/^\s*<\?php/', $codeContent)) {
                     // Prepend <?php\n
-                    $codeContent = "<?php\n".$codeContent;
+                    $codeContent = "<?php\n" . $codeContent;
                 }
 
-                return "```php\n".$codeContent.'```';
+                return "```php\n" . $codeContent . '```';
             },
             $content
         );

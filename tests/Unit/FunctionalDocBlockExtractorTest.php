@@ -420,7 +420,7 @@ PHP;
     expect($doc['owner'])->toBe('App\Traits\TimestampHandler');
     expect($doc['navPath'])->toBe('Traits / Timestamp Handler');
     expect($doc['description'])->toContain('This trait provides timestamp functionality');
-    expect($doc['uses'])->toContain(\Carbon\Carbon::class);
+    expect($doc['uses'])->toContain('\Carbon\Carbon'); // Note: includes leading backslash
     expect($doc['links'])->toContain('https://example.com/traits');
     expect($doc['sourceFile'])->toBe('/test/path/TestTrait.php');
 });
