@@ -9,9 +9,10 @@ use PhpParser\NodeVisitorAbstract;
 
 /**
  * @functional
- *  Another class
- * * @nav Main Section / Sub Section / Another Page
+ * Extracts functional documentation from PHP docblocks.
  *
+ * @nav Main Section / Sub Section / Another Page
+ * @uses \Xentral\LaravelDocs\MkDocsGenerator
  */
 class FunctionalDocBlockExtractor extends NodeVisitorAbstract
 {

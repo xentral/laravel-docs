@@ -5,6 +5,13 @@ namespace Xentral\LaravelDocs;
 use Illuminate\Filesystem\Filesystem;
 use Symfony\Component\Yaml\Yaml;
 
+/**
+ * @functional
+ * Generates MkDocs documentation from extracted functional documentation.
+ *
+ * @nav Main Section / Generator / MkDocs Generator
+ * @uses \Illuminate\Filesystem\Filesystem
+ */
 class MkDocsGenerator
 {
     private array $validationWarnings = [];
@@ -67,7 +74,7 @@ class MkDocsGenerator
         $referencedBy = $this->buildReferencedByMap($processedNodes, $registry, $navPathMap, $navIdMap);
 
         // Generate the document tree
-        $docTree = $this->generateDocTree($processedNodes, $registry, $navPathMap, $navIdMap, $usedBy, $referencedBy);
+        $docTree = $this->generateDocTree($processedNodes, $registry, $navPathMap, $navIdMap, $usedBy, $referencedBy, $processedNodes);
 
         // Prepare output directory
         $this->filesystem->deleteDirectory($docsOutputDir);
@@ -495,7 +502,7 @@ class MkDocsGenerator
         return $referencedBy;
     }
 
-    private function generateDocTree(array $documentationNodes, array $registry, array $navPathMap, array $navIdMap, array $usedBy, array $referencedBy): array
+    private function generateDocTree(array $documentationNodes, array $registry, array $navPathMap, array $navIdMap, array $usedBy, array $referencedBy, array $allNodes): array
     {
         $docTree = [];
         $pathRegistry = [];
@@ -531,7 +538,7 @@ class MkDocsGenerator
             }
 
             // Generate the markdown content
-            $markdownContent = $this->generateMarkdownContent($node, $pageTitle, $registry, $navPathMap, $navIdMap, $usedBy, $referencedBy);
+            $markdownContent = $this->generateMarkdownContent($node, $pageTitle, $registry, $navPathMap, $navIdMap, $usedBy, $referencedBy, $allNodes);
 
             // Build the path in the document tree
             $docTree = $this->addToDocTree($docTree, $pathSegments, $originalPageTitle, $pageFileName, $markdownContent);
@@ -623,11 +630,11 @@ class MkDocsGenerator
         return $array;
     }
 
-    private function generateMarkdownContent(array $node, string $pageTitle, array $registry, array $navPathMap, array $navIdMap, array $usedBy, array $referencedBy): string
+    private function generateMarkdownContent(array $node, string $pageTitle, array $registry, array $navPathMap, array $navIdMap, array $usedBy, array $referencedBy, array $allNodes): string
     {
         // Handle static content nodes differently
         if (isset($node['type']) && $node['type'] === 'static_content') {
-            return $this->generateStaticContent($node, $pageTitle, $registry, $navPathMap, $navIdMap, $usedBy, $referencedBy);
+            return $this->generateStaticContent($node, $pageTitle, $registry, $navPathMap, $navIdMap, $usedBy, $referencedBy, $allNodes);
         }
 
         $markdownContent = "# {$pageTitle}\n\n";
@@ -639,7 +646,7 @@ class MkDocsGenerator
 
         // Add "Building Blocks Used" section
         if (! empty($node['uses'])) {
-            $markdownContent .= $this->generateUsedComponentsSection($node, $registry, $navPathMap);
+            $markdownContent .= $this->generateUsedComponentsSection($node, $registry, $navPathMap, $allNodes);
         }
 
         // Add "Used By Building Blocks" section
@@ -661,7 +668,7 @@ class MkDocsGenerator
         return $markdownContent;
     }
 
-    private function generateStaticContent(array $node, string $pageTitle, array $registry = [], array $navPathMap = [], array $navIdMap = [], array $usedBy = [], array $referencedBy = []): string
+    private function generateStaticContent(array $node, string $pageTitle, array $registry = [], array $navPathMap = [], array $navIdMap = [], array $usedBy = [], array $referencedBy = [], array $allNodes = []): string
     {
         // For static content, we don't add the title since it might already be in the content
         // We also don't add the source subtitle
@@ -677,7 +684,7 @@ class MkDocsGenerator
 
         // Add "Building Blocks Used" section if uses are defined
         if (! empty($node['uses'])) {
-            $content .= $this->generateUsedComponentsSection($node, $registry, $navPathMap);
+            $content .= $this->generateUsedComponentsSection($node, $registry, $navPathMap, $allNodes);
         }
 
         // Add "Used By Building Blocks" section
@@ -981,38 +988,104 @@ class MkDocsGenerator
         return $content;
     }
 
-    private function generateUsedComponentsSection(array $node, array $registry, array $navPathMap): string
+    /**
+     * Recursively collect all dependencies (transitive closure)
+     *
+     * @param  string  $owner  The owner to collect dependencies for
+     * @param  array  $allNodes  All documentation nodes
+     * @param  array  $visited  Track visited nodes to detect cycles
+     * @param  int  $depth  Current depth level
+     * @param  int  $maxDepth  Maximum recursion depth
+     * @return array Array of dependencies with structure: ['owner' => string, 'depth' => int, 'uses' => array]
+     */
+    private function collectRecursiveDependencies(string $owner, array $allNodes, array &$visited = [], int $depth = 0, int $maxDepth = 5): array
+    {
+        // Stop if max depth reached
+        if ($depth >= $maxDepth) {
+            return [];
+        }
+
+        // Mark as visited to detect cycles
+        if (isset($visited[$owner])) {
+            return []; // Already visited, skip to avoid cycles
+        }
+        $visited[$owner] = true;
+
+        $dependencies = [];
+
+        // Find the node for this owner
+        $currentNode = null;
+        foreach ($allNodes as $node) {
+            if ($node['owner'] === $owner) {
+                $currentNode = $node;
+                break;
+            }
+        }
+
+        if (!$currentNode || empty($currentNode['uses'])) {
+            return [];
+        }
+
+        // Collect direct dependencies
+        foreach ($currentNode['uses'] as $used) {
+            $usedKey = ltrim(trim((string) $used), '\\');
+
+            $dependencies[] = [
+                'owner' => $usedKey,
+                'depth' => $depth,
+                'uses' => [],
+            ];
+
+            // Recursively collect dependencies of this dependency
+            $nestedDeps = $this->collectRecursiveDependencies($usedKey, $allNodes, $visited, $depth + 1, $maxDepth);
+            if (!empty($nestedDeps)) {
+                $dependencies[count($dependencies) - 1]['uses'] = $nestedDeps;
+            }
+        }
+
+        return $dependencies;
+    }
+
+    private function generateUsedComponentsSection(array $node, array $registry, array $navPathMap, array $allNodes = []): string
     {
         $content = "\n\n## Building Blocks Used\n\n";
         $content .= "This functionality is composed of the following reusable components:\n\n";
 
         $mermaidLinks = [];
-        $mermaidContent = "graph LR\n";
+        $mermaidContent = "graph TD\n"; // Changed to TD (top-down) for better nested visualization
         $ownerId = $this->slug($node['owner']);
         $ownerNavPath = $navPathMap[$node['owner']] ?? '';
         $mermaidContent .= "    {$ownerId}[\"{$ownerNavPath}\"];\n";
 
         $sourcePath = $registry[$node['owner']] ?? '';
 
+        // Recursively collect all dependencies
+        $visited = [$node['owner'] => true]; // Mark current node as visited to prevent self-references
+        $allDependencies = [];
+
+        // Collect direct dependencies with recursive expansion
         foreach ($node['uses'] as $used) {
             $usedRaw = trim((string) $used);
             $lookupKey = ltrim($usedRaw, '\\');
-            $usedId = $this->slug($usedRaw);
-            $usedNavPath = $navPathMap[$lookupKey] ?? $usedRaw;
 
-            if (isset($registry[$lookupKey])) {
-                $targetPath = $registry[$lookupKey];
-                $relativeFilePath = $this->makeRelativePath($targetPath, $sourcePath);
-                $relativeUrl = $this->toCleanUrl($relativeFilePath);
+            // Collect recursive dependencies for this component
+            // Reset visited for each direct dependency, but keep current node marked
+            $localVisited = $visited;
+            $nestedDeps = $this->collectRecursiveDependencies($lookupKey, $allNodes, $localVisited, 0, 5);
 
-                $content .= "* [{$usedNavPath}]({$relativeUrl})\n";
-                $mermaidContent .= "    {$ownerId} --> {$usedId}[\"{$usedNavPath}\"];\n";
-                $mermaidLinks[] = "click {$usedId} \"{$relativeUrl}\" \"View documentation for {$usedRaw}\"";
-            } else {
-                $content .= "* {$usedNavPath} (Not documented)\n";
-                $mermaidContent .= "    {$ownerId} --> {$usedId}[\"{$usedNavPath}\"];\n";
-            }
+            $allDependencies[] = [
+                'owner' => $lookupKey,
+                'depth' => 0,
+                'raw' => $usedRaw,
+                'uses' => $nestedDeps,
+            ];
         }
+
+        // Generate list content (flat list with depth indication for readability)
+        $this->generateDependencyList($content, $allDependencies, $registry, $navPathMap, $sourcePath, 0);
+
+        // Generate Mermaid diagram with connections
+        $this->addMermaidDependencies($mermaidContent, $mermaidLinks, $ownerId, $allDependencies, $registry, $navPathMap, $sourcePath);
 
         $content .= "\n\n### Composition Graph\n\n";
         $content .= "```mermaid\n";
@@ -1024,6 +1097,61 @@ class MkDocsGenerator
         $content .= "```\n";
 
         return $content;
+    }
+
+    /**
+     * Generate a hierarchical list of dependencies
+     */
+    private function generateDependencyList(string &$content, array $dependencies, array $registry, array $navPathMap, string $sourcePath, int $depth = 0): void
+    {
+        $indent = str_repeat('    ', $depth);
+
+        foreach ($dependencies as $dep) {
+            $lookupKey = $dep['owner'];
+            $usedRaw = $dep['raw'] ?? $lookupKey;
+            $usedNavPath = $navPathMap[$lookupKey] ?? $usedRaw;
+
+            if (isset($registry[$lookupKey])) {
+                $targetPath = $registry[$lookupKey];
+                $relativeFilePath = $this->makeRelativePath($targetPath, $sourcePath);
+                $relativeUrl = $this->toCleanUrl($relativeFilePath);
+                $content .= "{$indent}* [{$usedNavPath}]({$relativeUrl})\n";
+            } else {
+                $content .= "{$indent}* {$usedNavPath} (Not documented)\n";
+            }
+
+            // Recursively add nested dependencies
+            if (!empty($dep['uses'])) {
+                $this->generateDependencyList($content, $dep['uses'], $registry, $navPathMap, $sourcePath, $depth + 1);
+            }
+        }
+    }
+
+    /**
+     * Recursively add dependencies to Mermaid diagram
+     */
+    private function addMermaidDependencies(string &$mermaidContent, array &$mermaidLinks, string $parentId, array $dependencies, array $registry, array $navPathMap, string $sourcePath): void
+    {
+        foreach ($dependencies as $dep) {
+            $lookupKey = $dep['owner'];
+            $usedRaw = $dep['raw'] ?? $lookupKey;
+            $usedId = $this->slug($usedRaw);
+            $usedNavPath = $navPathMap[$lookupKey] ?? $usedRaw;
+
+            $mermaidContent .= "    {$parentId} --> {$usedId}[\"{$usedNavPath}\"];\n";
+
+            if (isset($registry[$lookupKey])) {
+                $targetPath = $registry[$lookupKey];
+                $relativeFilePath = $this->makeRelativePath($targetPath, $sourcePath);
+                $relativeUrl = $this->toCleanUrl($relativeFilePath);
+                $mermaidLinks[] = "click {$usedId} \"{$relativeUrl}\" \"View documentation for {$usedRaw}\"";
+            }
+
+            // Recursively add nested dependencies
+            if (!empty($dep['uses'])) {
+                $this->addMermaidDependencies($mermaidContent, $mermaidLinks, $usedId, $dep['uses'], $registry, $navPathMap, $sourcePath);
+            }
+        }
     }
 
     private function generateUsedBySection(string $ownerKey, array $usedBy, array $registry, array $navPathMap): string
