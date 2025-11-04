@@ -7,6 +7,14 @@ use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\NodeVisitorAbstract;
 
+/**
+ * @functional
+ * Extracts functional documentation from PHP docblocks.
+ *
+ * @nav Main Section / Sub Section / Another Page
+ *
+ * @uses \Xentral\LaravelDocs\MkDocsGenerator
+ */
 class FunctionalDocBlockExtractor extends NodeVisitorAbstract
 {
     public array $foundDocs = [];
@@ -137,7 +145,9 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
             }
 
             if ($inFunctionalBlock) {
-                if (str_starts_with(trim((string) $testLine), '@')) {
+                // Check if this line contains an annotation (even if it's in a bullet list)
+                $trimmedTest = ltrim(trim((string) $testLine), '* -');
+                if (str_starts_with(trim($trimmedTest), '@')) {
                     break;
                 }
                 $rawFunctionalLines[] = $testLine;
