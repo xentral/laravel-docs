@@ -4,21 +4,9 @@ return [
     'paths' => [dirname(__DIR__, 2).'/src', dirname(__DIR__).'/app'],
     'output' => dirname(__DIR__, 2).'/docs',
     'commands' => [
-        // {path} and {port} will be replaced with the configured/passed values
-        'build' => 'docker run --rm -v {path}:/docs squidfunk/mkdocs-material build',
-        'serve' => [
-            'docker', 'run', '--rm', '-it',
-            '-p', '{port}:{port}',
-            '-v', '{path}:/docs',
-            '-e', 'ADD_MODULES=mkdocs-material pymdown-extensions',
-            '-e', 'LIVE_RELOAD_SUPPORT=true',
-            '-e', 'FAST_MODE=true',
-            '-e', 'DOCS_DIRECTORY=/docs',
-            '-e', 'AUTO_UPDATE=true',
-            '-e', 'UPDATE_INTERVAL=1',
-            '-e', 'DEV_ADDR=0.0.0.0:{port}',
-            'polinux/mkdocs',
-        ],
+        'build' => 'uvx -w mkdocs-material -w pymdown-extensions mkdocs build',
+        'publish' => 'uvx -w mkdocs-material -w pymdown-extensions mkdocs gh-deploy',
+        'serve' => 'uvx -w mkdocs-material -w pymdown-extensions mkdocs serve',
     ],
     'config' => [
         'site_name' => 'Xentral Functional Documentation',
