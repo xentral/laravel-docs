@@ -378,3 +378,87 @@ PHP;
     expect($doc['navId'])->toBe('child-service');
     expect($doc['navParent'])->toBe('parent-service');
 });
+
+it('can extract functional documentation from trait docblocks', function () {
+    $extractor = new FunctionalDocBlockExtractor;
+    $extractor->setCurrentFilePath('/test/path/TestTrait.php');
+
+    $phpCode = <<<'PHP'
+<?php
+namespace App\Traits;
+
+/**
+ * Timestamp handling trait
+ *
+ * @functional
+ * This trait provides timestamp functionality for models.
+ *
+ * # Key Features
+ * - Automatic timestamp management
+ * - Custom timestamp formats
+ *
+ * @nav Traits / Timestamp Handler
+ * @uses \Carbon\Carbon
+ * @link https://example.com/traits
+ */
+trait TimestampHandler
+{
+    public function updateTimestamps() {}
+}
+PHP;
+
+    $parser = (new ParserFactory)->createForNewestSupportedVersion();
+    $traverser = new NodeTraverser;
+    $traverser->addVisitor($extractor);
+
+    $ast = $parser->parse($phpCode);
+    $traverser->traverse($ast);
+
+    expect($extractor->foundDocs)->toHaveCount(1);
+
+    $doc = $extractor->foundDocs[0];
+    expect($doc['owner'])->toBe('App\Traits\TimestampHandler');
+    expect($doc['navPath'])->toBe('Traits / Timestamp Handler');
+    expect($doc['description'])->toContain('This trait provides timestamp functionality');
+    expect($doc['uses'])->toContain(\Carbon\Carbon::class);
+    expect($doc['links'])->toContain('https://example.com/traits');
+    expect($doc['sourceFile'])->toBe('/test/path/TestTrait.php');
+});
+
+it('can extract functional documentation from trait methods', function () {
+    $extractor = new FunctionalDocBlockExtractor;
+    $extractor->setCurrentFilePath('/test/path/TestTrait.php');
+
+    $phpCode = <<<'PHP'
+<?php
+namespace App\Traits;
+
+trait TimestampHandler
+{
+    /**
+     * Update timestamps method
+     *
+     * @functional
+     * This method updates the created_at and updated_at timestamps.
+     *
+     * @nav Traits / Update Timestamps Process
+     * @uses \Carbon\Carbon
+     */
+    public function updateTimestamps() {}
+}
+PHP;
+
+    $parser = (new ParserFactory)->createForNewestSupportedVersion();
+    $traverser = new NodeTraverser;
+    $traverser->addVisitor($extractor);
+
+    $ast = $parser->parse($phpCode);
+    $traverser->traverse($ast);
+
+    expect($extractor->foundDocs)->toHaveCount(1);
+
+    $doc = $extractor->foundDocs[0];
+    expect($doc['owner'])->toBe('App\Traits\TimestampHandler::updateTimestamps');
+    expect($doc['navPath'])->toBe('Traits / Update Timestamps Process');
+    expect($doc['description'])->toContain('This method updates the created_at and updated_at timestamps');
+});

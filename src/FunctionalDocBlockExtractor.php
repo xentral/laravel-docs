@@ -37,6 +37,9 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
         if ($node instanceof Node\Stmt\Class_ && $node->name) {
             $this->currentClassName = $node->name->toString();
         }
+        if ($node instanceof Node\Stmt\Trait_ && $node->name) {
+            $this->currentClassName = $node->name->toString();
+        }
 
         // Process the doc comment if it exists
         if ($node->getDocComment()) {
@@ -61,6 +64,9 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
     public function leaveNode(Node $node): null
     {
         if ($node instanceof Node\Stmt\Class_) {
+            $this->currentClassName = null;
+        }
+        if ($node instanceof Node\Stmt\Trait_) {
             $this->currentClassName = null;
         }
         if ($node instanceof Node\Stmt\Namespace_) {
@@ -230,6 +236,11 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
 
             return ltrim($fqcn, '\\');
         }
+        if ($node instanceof Node\Stmt\Trait_) {
+            $fqcn = $namespace.$node->name->toString();
+
+            return ltrim($fqcn, '\\');
+        }
         if ($node instanceof ClassMethod && $this->currentClassName) {
             $fqcn = $namespace.$this->currentClassName.'::'.$node->name->toString();
 
@@ -247,6 +258,9 @@ class FunctionalDocBlockExtractor extends NodeVisitorAbstract
     private function getDefaultTitleForNode(Node $node): string
     {
         if ($node instanceof Node\Stmt\Class_ && $node->name) {
+            return $node->name->toString();
+        }
+        if ($node instanceof Node\Stmt\Trait_ && $node->name) {
             return $node->name->toString();
         }
         if ($node instanceof ClassMethod && $this->currentClassName) {

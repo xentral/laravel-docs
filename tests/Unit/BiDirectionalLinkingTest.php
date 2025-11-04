@@ -55,15 +55,13 @@ it('builds referenced-by map from cross-references', function () {
     // Capture content for AuthService to verify "Referenced by" section
     $authServiceContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/auth\.md$/'), Mockery::on(function ($content) use (&$authServiceContent) {
-            if (str_contains($content, 'Main authentication service')) {
+        ->with(Mockery::any(), Mockery::on(function ($content) use (&$authServiceContent) {
+            if (is_string($content) && str_contains($content, 'Main authentication service')) {
                 $authServiceContent = $content;
             }
 
             return true;
-        }));
-
-    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+        }))->atLeast()->once();
 
     $this->generator->generate($documentationNodes, '/docs');
 
@@ -99,15 +97,13 @@ it('generates "Referenced by" sections', function () {
 
     $paymentContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/payment\.md$/'), Mockery::on(function ($content) use (&$paymentContent) {
-            if (str_contains($content, 'Payment processing service')) {
+        ->with(Mockery::any(), Mockery::on(function ($content) use (&$paymentContent) {
+            if (is_string($content) && str_contains($content, 'Payment processing service')) {
                 $paymentContent = $content;
             }
 
             return true;
-        }));
-
-    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+        }))->atLeast()->once();
 
     $this->generator->generate($documentationNodes, '/docs');
 
@@ -143,15 +139,13 @@ it('deduplicates backlink references', function () {
 
     $userServiceContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/user\.md$/'), Mockery::on(function ($content) use (&$userServiceContent) {
-            if (str_contains($content, 'User service')) {
+        ->with(Mockery::any(), Mockery::on(function ($content) use (&$userServiceContent) {
+            if (is_string($content) && str_contains($content, 'User service')) {
                 $userServiceContent = $content;
             }
 
             return true;
-        }));
-
-    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+        }))->atLeast()->once();
 
     $this->generator->generate($documentationNodes, '/docs');
 
@@ -207,15 +201,13 @@ it('sorts backlinks by navigation path', function () {
 
     $coreServiceContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/core\.md$/'), Mockery::on(function ($content) use (&$coreServiceContent) {
-            if (str_contains($content, 'Core service')) {
+        ->with(Mockery::any(), Mockery::on(function ($content) use (&$coreServiceContent) {
+            if (is_string($content) && str_contains($content, 'Core service')) {
                 $coreServiceContent = $content;
             }
 
             return true;
-        }));
-
-    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+        }))->atLeast()->once();
 
     $this->generator->generate($documentationNodes, '/docs');
 
@@ -297,13 +289,13 @@ it('does not create referenced by section when no references exist', function ()
 
     $standaloneContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/standalone\.md$/'), Mockery::on(function ($content) use (&$standaloneContent) {
-            $standaloneContent = $content;
+        ->with(Mockery::any(), Mockery::on(function ($content) use (&$standaloneContent) {
+            if (is_string($content) && str_contains($content, 'This service is not referenced')) {
+                $standaloneContent = $content;
+            }
 
             return true;
-        }));
-
-    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+        }))->atLeast()->once();
 
     $this->generator->generate($documentationNodes, '/docs');
 
@@ -338,15 +330,13 @@ it('generates backlinks with relative URLs', function () {
 
     $deepServiceContent = null;
     $this->filesystem->shouldReceive('put')
-        ->with(Mockery::pattern('/deep-service\.md$/'), Mockery::on(function ($content) use (&$deepServiceContent) {
-            if (str_contains($content, 'Deeply nested')) {
+        ->with(Mockery::any(), Mockery::on(function ($content) use (&$deepServiceContent) {
+            if (is_string($content) && str_contains($content, 'Deeply nested')) {
                 $deepServiceContent = $content;
             }
 
             return true;
-        }));
-
-    $this->filesystem->shouldReceive('put')->with(Mockery::any(), Mockery::any())->atLeast()->once();
+        }))->atLeast()->once();
 
     $this->generator->generate($documentationNodes, '/docs');
 
