@@ -528,8 +528,7 @@ class MkDocsGenerator
             } else {
                 // For PHPDoc content, use existing conflict resolution with slugging
                 $baseFileName = $this->slug($pageTitle);
-                $pathForConflictCheck = implode('/', array_map([$this,
-                    'slug'], $pathSegments)).'/'.$baseFileName.'.md';
+                $pathForConflictCheck = implode('/', array_map($this->slug(...), $pathSegments)).'/'.$baseFileName.'.md';
 
                 // Determine the final page filename and title based on conflicts
                 [$pageFileName, $pageTitle] = $this->resolveFileNameConflict(
@@ -1337,7 +1336,7 @@ class MkDocsGenerator
         $staticContentConfig = config('docs.static_content', []);
         foreach ($staticContentConfig as $contentType => $config) {
             $navPrefix = $config['nav_prefix'] ?? ucfirst((string) $contentType);
-            if (strtolower($dirName) === strtolower($navPrefix)) {
+            if (strtolower($dirName) === strtolower((string) $navPrefix)) {
                 return 'static';
             }
         }
